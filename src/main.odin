@@ -1,9 +1,11 @@
 package main
 
-step :: proc(app: ^App) {
-	
-}
+import "core:fmt"
 
 main :: proc() {
-	app_run()
+	switch app_run() {
+		case .None: break
+		case .GlfwInitializationFailed: fmt.println("Failed to initialize GLFW")
+		case .WindowCreationFailed: fmt.println("Failed to create window")
+	}
 }
