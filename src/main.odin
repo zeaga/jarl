@@ -11,20 +11,10 @@ step_fn :: proc(app: ^jarl.App) {
 }
 
 main :: proc() {
-	descriptor: jarl.AppDescriptor = {
-		init_fn = nil,
+	jarl.app_run({
 		step_fn = step_fn,
-		draw_fn = nil,
-
 		window_title = "Noneuclid",
 		window_width = 800,
 		window_height = 600,
-	}
-
-	switch jarl.app_run(descriptor) {
-		case .None: break
-		case .GlfwInitializationFailed: fmt.println("Failed to initialize GLFW")
-		case .WindowCreationFailed: fmt.println("Failed to create window")
-		case .ScriptError: fmt.println("Failed to run Lua script")
-	}
+	})
 }

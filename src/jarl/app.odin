@@ -1,6 +1,6 @@
 package jarl
 
-import "core:fmt"
+import "core:log"
 import "core:time"
 import "vendor:glfw"
 import gl "vendor:OpenGL"
@@ -17,6 +17,8 @@ AppDescriptor :: struct {
 	window_width: i32,
 	window_height: i32,
 
+	log_level: log.Level,
+
 	user_data: rawptr,
 }
 
@@ -24,8 +26,11 @@ App :: struct {
 	run_time: time.Time,
 	delta_time: time.Duration,
 	running: bool,
-	user_data: rawptr,
 
+	user_data: rawptr,
+	logger: log.Logger,
+	
+	log_level: log.Level,
 	init_fn: proc (app: ^App),
 	step_fn: proc (app: ^App),
 	draw_fn: proc (app: ^App),
@@ -35,8 +40,13 @@ App :: struct {
 	lvm: LuaVm,
 }
 
-app_run :: proc(descriptor: AppDescriptor) -> Error {
+app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
 	app: App
+
+	app.log_level = descriptor.log_level != nil ? descriptor.log_level : log.Level.Info
+	app.logger = log.create_console_logger(app.log_level)
+	context.logger = app.logger
+	defer log.destroy_console_logger(app.logger)
 
 	if descriptor.init_fn != nil {
 		app.init_fn = descriptor.init_fn
@@ -56,12 +66,14 @@ app_run :: proc(descriptor: AppDescriptor) -> Error {
 	glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
 
 	if !glfw.Init() {
-		return Error.GlfwInitializationFailed
+		log.error("Failed to initialize GLFW")
+		return false
 	}
 	defer glfw.Terminate()
 
 	if !window_create(&app.window, descriptor.window_width, descriptor.window_height, descriptor.window_title) {
-		return Error.WindowCreationFailed
+		log.error("Failed to create window")
+		return false
 	}
 	defer window_destroy(&app.window)
 	glfw.SetWindowUserPointer(app.window.handle, &app)
@@ -110,7 +122,7 @@ app_run :: proc(descriptor: AppDescriptor) -> Error {
 		glfw.SwapBuffers(app.window.handle)
 	}
 
-	return Error.None
+	return true
 }
 
 @(private="file") _app_mouse_pos_cbfn :: proc "c" (window: glfw.WindowHandle, xpos, ypos: f64) {

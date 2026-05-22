@@ -1,6 +1,6 @@
 package jarl
 
-import "core:fmt"
+import "core:log"
 import "core:os"
 import "core:path/filepath"
 import "core:strings"
@@ -25,7 +25,7 @@ lvm_init :: proc(lvm: ^LuaVm) {
 	lua.pop(lvm.state, 1)
 
 	if !lvm_run_string(lvm, #load("res/base.lua")) {
-		fmt.println("Failed to load base.lua")
+		log.error("Failed to load base.lua")
 		return
 	}
 
@@ -36,7 +36,7 @@ lvm_init :: proc(lvm: ^LuaVm) {
 lvm_run_string :: proc(lvm: ^LuaVm, code: cstring) -> (ok: bool) {
 	if lua.L_dostring(lvm.state, code) != 0 {
 		err := lua.tostring(lvm.state, -1)
-		fmt.println(err)
+		log.warn(err)
 		lua.pop(lvm.state, 1)
 		return false
 	}
@@ -46,7 +46,7 @@ lvm_run_string :: proc(lvm: ^LuaVm, code: cstring) -> (ok: bool) {
 lvm_run_file :: proc(lvm: ^LuaVm, path: cstring) -> (ok: bool) {
 	if lua.L_dofile(lvm.state, path) != 0 {
 		err := lua.tostring(lvm.state, -1)
-		fmt.println(err)
+		log.warn(err)
 		lua.pop(lvm.state, 1)
 		return false
 	}
