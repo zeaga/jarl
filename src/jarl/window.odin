@@ -12,8 +12,8 @@ window_create :: proc(window: ^Window, width: i32, height: i32, title: cstring) 
 		return false
 	}
 
-	glfw.SwapInterval(1)
 	glfw.MakeContextCurrent(handle)
+	glfw.SwapInterval(1)
 
 	window.handle = handle
 	return true

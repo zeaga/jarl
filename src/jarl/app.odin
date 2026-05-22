@@ -10,11 +10,6 @@ GL_MAJOR_VERSION :: 3
 GL_MINOR_VERSION :: 3
 
 AppDescriptor :: struct {
-	init_fn: proc (app: ^App),
-	step_fn: proc (app: ^App),
-	draw_fn: proc (app: ^App),
-	quit_fn: proc (app: ^App),
-
 	window_title: cstring,
 	window_width: i32,
 	window_height: i32,
@@ -30,13 +25,7 @@ App :: struct {
 	running: bool,
 
 	user_data: rawptr,
-	logger: log.Logger,
-	
-	log_level: log.Level,
-	init_fn: proc (app: ^App),
-	step_fn: proc (app: ^App),
-	draw_fn: proc (app: ^App),
-	quit_fn: proc (app: ^App),
+	ctx: runtime.Context,
 
 	window: Window,
 	input: Input,
@@ -47,23 +36,12 @@ App :: struct {
 
 app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
 	app: App
-
-	app.log_level = descriptor.log_level != nil ? descriptor.log_level : log.Level.Info
-	app.logger = log.create_console_logger(app.log_level)
-	context.logger = app.logger
-	defer log.destroy_console_logger(app.logger)
-
-	if descriptor.init_fn != nil {
-		app.init_fn = descriptor.init_fn
-	}
-
-	if descriptor.step_fn != nil {
-		app.step_fn = descriptor.step_fn
-	}
-
-	if descriptor.draw_fn != nil {
-		app.draw_fn = descriptor.draw_fn
-	}
+	
+	log_level := descriptor.log_level != nil ? descriptor.log_level : log.Level.Info
+	context.logger = log.create_console_logger(log_level)
+	defer log.destroy_console_logger(context.logger)
+	
+	app.ctx = context
 
 	glfw.WindowHint(glfw.RESIZABLE, glfw.TRUE)
 	glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, GL_MAJOR_VERSION)
@@ -71,13 +49,13 @@ app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
 	glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
 
 	if !glfw.Init() {
-		log.error("Failed to initialize GLFW")
+		log.fatal("Failed to initialize GLFW")
 		return false
 	}
 	defer glfw.Terminate()
 
 	if !window_create(&app.window, descriptor.window_width, descriptor.window_height, descriptor.window_title) {
-		log.error("Failed to create window")
+		log.fatal("Failed to create window")
 		return false
 	}
 	defer window_destroy(&app.window)
@@ -92,8 +70,6 @@ app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
 	glfw.SetMouseButtonCallback(app.window.handle, _app_mouse_btn_cbfn)
 	glfw.SetWindowRefreshCallback(app.window.handle, _app_refresh_cbfn)
 	glfw.SetScrollCallback(app.window.handle, _app_scroll_cbfn)
-
-	glfw.SwapInterval(1)
 
 	gl.load_up_to(GL_MAJOR_VERSION, GL_MINOR_VERSION, glfw.gl_set_proc_address)
 
@@ -110,34 +86,21 @@ app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
 	app.run_time = time.now()
 	app.running = true
 
-	if app.init_fn != nil {
-		app.init_fn(&app)
-	}
-
 	for app.running && !window_should_close(&app.window) {
-		current_time := time.now()
-		app.delta_time = time.diff(current_time, app.run_time)
-		app.run_time = current_time
-
-		input_begin_frame(&app.input)
-		glfw.PollEvents()
-
-		if app.step_fn != nil {
-			app.step_fn(&app)
-		}
-
-		if !app.running || window_should_close(&app.window) {
-			break
-		}
-
+		app_update(&app)
 		app_render(&app)
 	}
 
-	if app.quit_fn != nil {
-		app.quit_fn(&app)
-	}
-
 	return true
+}
+
+app_update :: proc(app: ^App) {
+	current_time := time.now()
+	app.delta_time = time.diff(app.run_time, current_time)
+	app.run_time = current_time
+
+	input_begin_frame(&app.input)
+	glfw.PollEvents()
 }
 
 app_render :: proc(app: ^App) {
@@ -147,9 +110,7 @@ app_render :: proc(app: ^App) {
 	shader_bind(&app.shader)
 	gl.BindVertexArray(app.vao)
 
-	if app.draw_fn != nil {
-		app.draw_fn(app)
-	}
+	// DRAW HERE
 
 	gl.DrawArrays(gl.TRIANGLES, 0, 3)
 
@@ -185,7 +146,7 @@ app_render :: proc(app: ^App) {
 
 @(private="file") _app_refresh_cbfn :: proc "c" (window: glfw.WindowHandle) {
 	app := (^App)(glfw.GetWindowUserPointer(window))
-	context = runtime.default_context()
+	context = app.ctx
 	app_render(app)
 }
 

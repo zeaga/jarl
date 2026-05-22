@@ -16,6 +16,7 @@ lvm_create :: proc(lvm: ^LuaVm) {
 
 	exe_path := os.args[0]
 	exe_dir := filepath.dir(exe_path)
+	defer delete(exe_dir)
 
 	// setup package.path so we can load from /lua
 	lua_path, _ := filepath.join({exe_dir, "lua", "?.lua"}, context.temp_allocator)
@@ -25,7 +26,7 @@ lvm_create :: proc(lvm: ^LuaVm) {
 	lua.pop(lvm.state, 1)
 
 	if !lvm_run_string(lvm, #load("res/base.lua")) {
-		log.error("Failed to load base.lua")
+		log.fatal("Failed to load base.lua")
 		return
 	}
 
@@ -36,17 +37,7 @@ lvm_create :: proc(lvm: ^LuaVm) {
 lvm_run_string :: proc(lvm: ^LuaVm, code: cstring) -> (ok: bool) {
 	if lua.L_dostring(lvm.state, code) != 0 {
 		err := lua.tostring(lvm.state, -1)
-		log.warn(err)
-		lua.pop(lvm.state, 1)
-		return false
-	}
-	return true
-}
-
-lvm_run_file :: proc(lvm: ^LuaVm, path: cstring) -> (ok: bool) {
-	if lua.L_dofile(lvm.state, path) != 0 {
-		err := lua.tostring(lvm.state, -1)
-		log.warn(err)
+		log.error(err)
 		lua.pop(lvm.state, 1)
 		return false
 	}

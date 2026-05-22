@@ -28,9 +28,10 @@ _shader_compile_from_source :: proc(shader_type: u32, source: string) -> (shader
 	log_str := make([]u8, log_length, context.temp_allocator)
 	gl.GetShaderInfoLog(shader, log_length, nil, &log_str[0])
 
-	log.error("    Shader compilation failed:")
-	log.error(&log_str[0])
+	log.fatal("    Shader compilation failed:")
+	log.fatal(&log_str[0])
 
+	gl.DeleteShader(shader)
 	return 0, false
 }
 
@@ -65,8 +66,9 @@ shader_create :: proc(shader: ^Shader, vertex_src: string, fragment_src: string)
 	log_str := make([]u8, log_length, context.temp_allocator)
 	gl.GetProgramInfoLog(program, log_length, nil, &log_str[0])
 
-	log.error("    Shader linking failed:")
-	log.error(&log_str[0])
+	log.fatal("    Shader linking failed:")
+	log.fatal(&log_str[0])
+	gl.DeleteProgram(program)
 	return false
 }
 

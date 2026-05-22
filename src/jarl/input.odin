@@ -32,26 +32,44 @@ input_begin_frame :: proc(input: ^Input) {
 }
 
 input_is_key_down :: proc(input: ^Input, key: Key) -> bool {
+	if key < Key(0) || key >= Key.Count {
+		return false
+	}
 	return input.keys_current[key]
 }
 
 input_is_key_pressed :: proc(input: ^Input, key: Key) -> bool {
+	if key < Key(0) || key >= Key.Count {
+		return false
+	}
 	return input.keys_current[key] && !input.keys_previous[key]
 }
 
 input_is_key_released :: proc(input: ^Input, key: Key) -> bool {
+	if key < Key(0) || key >= Key.Count {
+		return false
+	}
 	return !input.keys_current[key] && input.keys_previous[key]
 }
 
 input_is_mouse_down :: proc(input: ^Input, button: MouseButton) -> bool {
+	if button < MouseButton(0) || button >= MouseButton.Count {
+		return false
+	}
 	return input.mbtns_current[button]
 }
 
 input_is_mouse_pressed :: proc(input: ^Input, button: MouseButton) -> bool {
+	if button < MouseButton(0) || button >= MouseButton.Count {
+		return false
+	}
 	return input.mbtns_current[button] && !input.mbtns_previous[button]
 }
 
 input_is_mouse_released :: proc(input: ^Input, button: MouseButton) -> bool {
+	if button < MouseButton(0) || button >= MouseButton.Count {
+		return false
+	}
 	return !input.mbtns_current[button] && input.mbtns_previous[button]
 }
 
