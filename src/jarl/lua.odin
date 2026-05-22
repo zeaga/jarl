@@ -24,7 +24,7 @@ lvm_init :: proc(lvm: ^LuaVm) {
 	lua.setfield(lvm.state, -2, "path")
 	lua.pop(lvm.state, 1)
 
-	if !lvm_run_string(lvm, #load("base.lua")) {
+	if !lvm_run_string(lvm, #load("res/base.lua")) {
 		fmt.println("Failed to load base.lua")
 		return
 	}
