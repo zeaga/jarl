@@ -6,7 +6,7 @@ Window :: struct {
 	handle: glfw.WindowHandle,
 }
 
-window_create :: proc(window: ^Window, width: i32, height: i32, title: cstring) -> bool {
+window_create :: proc(window: ^Window, width: i32, height: i32, title: cstring) -> (ok: bool) {
 	handle := glfw.CreateWindow(width, height, title, nil, nil)
 	if handle == nil {
 		return false

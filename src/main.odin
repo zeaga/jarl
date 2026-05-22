@@ -7,7 +7,7 @@ import "jarl"
 step_fn :: proc(app: ^jarl.App) {
 	iter: i32
 	for key in jarl.input_iter_keys_pressed(&app.input, &iter) {
-		fmt.println("Key held: ", key)
+		jarl.lvm_run_string(&app.lvm, "print('Key pressed!')")
 	}
 
 	if jarl.input_is_key_pressed(&app.input, .Escape) {
@@ -33,5 +33,6 @@ main :: proc() {
 		case .None: break
 		case .GlfwInitializationFailed: fmt.println("Failed to initialize GLFW")
 		case .WindowCreationFailed: fmt.println("Failed to create window")
+		case .ScriptError: fmt.println("Failed to run Lua script")
 	}
 }

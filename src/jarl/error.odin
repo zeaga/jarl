@@ -4,4 +4,5 @@ Error :: enum {
 	None,
 	GlfwInitializationFailed,
 	WindowCreationFailed,
+	ScriptError,
 }

@@ -1,5 +1,6 @@
 package jarl
 
+import "core:fmt"
 import "core:time"
 import "vendor:glfw"
 import gl "vendor:OpenGL"
@@ -31,6 +32,7 @@ App :: struct {
 
 	window: Window,
 	input: Input,
+	lvm: LuaVm,
 }
 
 app_run :: proc(descriptor: AppDescriptor) -> Error {
@@ -76,6 +78,9 @@ app_run :: proc(descriptor: AppDescriptor) -> Error {
 	glfw.SwapInterval(1)
 
 	gl.load_up_to(int(descriptor.gl_major_version), int(descriptor.gl_minor_version), glfw.gl_set_proc_address)
+
+	lvm_init(&app.lvm)
+	defer lvm_destroy(&app.lvm)
 
 	app.run_time = time.now()
 	app.running = true
