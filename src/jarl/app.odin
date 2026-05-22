@@ -12,6 +12,7 @@ AppDescriptor :: struct {
 	init_fn: proc (app: ^App),
 	step_fn: proc (app: ^App),
 	draw_fn: proc (app: ^App),
+	quit_fn: proc (app: ^App),
 
 	window_title: cstring,
 	window_width: i32,
@@ -34,6 +35,7 @@ App :: struct {
 	init_fn: proc (app: ^App),
 	step_fn: proc (app: ^App),
 	draw_fn: proc (app: ^App),
+	quit_fn: proc (app: ^App),
 
 	window: Window,
 	input: Input,
@@ -91,7 +93,7 @@ app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
 
 	gl.load_up_to(GL_MAJOR_VERSION, GL_MINOR_VERSION, glfw.gl_set_proc_address)
 
-	lvm_init(&app.lvm)
+	lvm_create(&app.lvm)
 	defer lvm_destroy(&app.lvm)
 
 	app.run_time = time.now()
@@ -113,6 +115,10 @@ app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
 			app.step_fn(&app)
 		}
 
+		if !app.running || window_should_close(&app.window) {
+			break
+		}
+
 		gl.ClearColor(0.2, 0.3, 0.3, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 		if app.draw_fn != nil {
@@ -120,6 +126,10 @@ app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
 		}
 
 		glfw.SwapBuffers(app.window.handle)
+	}
+
+	if app.quit_fn != nil {
+		app.quit_fn(&app)
 	}
 
 	return true

@@ -10,7 +10,7 @@ LuaVm :: struct {
 	state: ^lua.State,
 }
 
-lvm_init :: proc(lvm: ^LuaVm) {
+lvm_create :: proc(lvm: ^LuaVm) {
 	lvm.state = lua.L_newstate()
 	lua.L_openlibs(lvm.state)
 
