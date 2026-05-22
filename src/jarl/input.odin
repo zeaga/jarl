@@ -1,4 +1,4 @@
-package main
+package jarl
 
 import "vendor:glfw"
 

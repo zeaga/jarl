@@ -1,4 +1,4 @@
-package main
+package jarl
 
 Error :: enum {
 	None,

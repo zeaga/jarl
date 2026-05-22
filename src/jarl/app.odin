@@ -1,24 +1,56 @@
-package main
+package jarl
 
 import "core:time"
 import "vendor:glfw"
 import gl "vendor:OpenGL"
 
+AppDescriptor :: struct {
+	init_fn: proc (app: ^App),
+	step_fn: proc (app: ^App),
+	draw_fn: proc (app: ^App),
+
+	window_title: cstring,
+	window_width: i32,
+	window_height: i32,
+
+	gl_major_version: i32,
+	gl_minor_version: i32,
+
+	user_data: rawptr,
+}
+
 App :: struct {
 	run_time: time.Time,
 	delta_time: time.Duration,
 	running: bool,
-	window: Window,
-	input: Input,
+	user_data: rawptr,
+
 	init_fn: proc (app: ^App),
 	step_fn: proc (app: ^App),
 	draw_fn: proc (app: ^App),
+
+	window: Window,
+	input: Input,
 }
 
-app_run :: proc(app: ^App) -> Error {
+app_run :: proc(descriptor: AppDescriptor) -> Error {
+	app: App
+
+	if descriptor.init_fn != nil {
+		app.init_fn = descriptor.init_fn
+	}
+
+	if descriptor.step_fn != nil {
+		app.step_fn = descriptor.step_fn
+	}
+
+	if descriptor.draw_fn != nil {
+		app.draw_fn = descriptor.draw_fn
+	}
+
 	glfw.WindowHint(glfw.RESIZABLE, glfw.TRUE)
-	glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, GL_MAJOR_VERSION)
-	glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, GL_MINOR_VERSION)
+	glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, descriptor.gl_major_version)
+	glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, descriptor.gl_minor_version)
 	glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
 
 	if !glfw.Init() {
@@ -26,13 +58,13 @@ app_run :: proc(app: ^App) -> Error {
 	}
 	defer glfw.Terminate()
 
-	if !window_create(&app.window, WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE) {
+	if !window_create(&app.window, descriptor.window_width, descriptor.window_height, descriptor.window_title) {
 		return Error.WindowCreationFailed
 	}
 	defer window_destroy(&app.window)
-	glfw.SetWindowUserPointer(app.window.handle, app)
+	glfw.SetWindowUserPointer(app.window.handle, &app)
 
-	app.input.window_size = {WINDOW_WIDTH, WINDOW_HEIGHT}
+	app.input.window_size = {descriptor.window_width, descriptor.window_height}
 	app.input.mouse_pos = {glfw.GetCursorPos(app.window.handle)}
 
 	glfw.SetCursorPosCallback(app.window.handle, _app_mouse_pos_cbfn)
@@ -43,13 +75,13 @@ app_run :: proc(app: ^App) -> Error {
 
 	glfw.SwapInterval(1)
 
-	gl.load_up_to(GL_MAJOR_VERSION, GL_MINOR_VERSION, glfw.gl_set_proc_address)
+	gl.load_up_to(int(descriptor.gl_major_version), int(descriptor.gl_minor_version), glfw.gl_set_proc_address)
 
 	app.run_time = time.now()
 	app.running = true
 
 	if app.init_fn != nil {
-		app->init_fn()
+		app.init_fn(&app)
 	}
 
 	for app.running && !window_should_close(&app.window) {
@@ -61,31 +93,19 @@ app_run :: proc(app: ^App) -> Error {
 		glfw.PollEvents()
 
 		if app.step_fn != nil {
-			app->step_fn()
+			app.step_fn(&app)
 		}
 
 		gl.ClearColor(0.2, 0.3, 0.3, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 		if app.draw_fn != nil {
-			app->draw_fn()
+			app.draw_fn(&app)
 		}
 
 		glfw.SwapBuffers(app.window.handle)
 	}
 
 	return Error.None
-}
-
-app_set_init :: proc(app: ^App, init_fn: proc (app: ^App)) {
-	app.init_fn = init_fn
-}
-
-app_set_step :: proc(app: ^App, step_fn: proc (app: ^App)) {
-	app.step_fn = step_fn
-}
-
-app_set_draw :: proc(app: ^App, draw_fn: proc (app: ^App)) {
-	app.draw_fn = draw_fn
 }
 
 @(private="file") _app_mouse_pos_cbfn :: proc "c" (window: glfw.WindowHandle, xpos, ypos: f64) {
