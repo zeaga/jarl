@@ -1,7 +1,6 @@
 package main
 
 import "core:fmt"
-import "vendor:glfw"
 
 import "jarl"
 
@@ -11,7 +10,7 @@ step_fn :: proc(app: ^jarl.App) {
 		fmt.println("Key held: ", key)
 	}
 
-	if jarl.input_is_key_pressed(&app.input, glfw.KEY_ESCAPE) {
+	if jarl.input_is_key_pressed(&app.input, .Escape) {
 		app.running = false
 	}
 }
