@@ -1,0 +1,8 @@
+package main
+
+WINDOW_TITLE :: "Noneuclid"
+WINDOW_WIDTH :: 1600
+WINDOW_HEIGHT :: 900
+
+GL_MAJOR_VERSION :: 4
+GL_MINOR_VERSION :: 5
