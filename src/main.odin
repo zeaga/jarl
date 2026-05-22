@@ -12,9 +12,6 @@ step_fn :: proc(app: ^jarl.App) {
 
 main :: proc() {
 	descriptor: jarl.AppDescriptor = {
-		gl_major_version = 4,
-		gl_minor_version = 5,
-
 		init_fn = nil,
 		step_fn = step_fn,
 		draw_fn = nil,

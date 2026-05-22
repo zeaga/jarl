@@ -5,6 +5,9 @@ import "core:time"
 import "vendor:glfw"
 import gl "vendor:OpenGL"
 
+GL_MAJOR_VERSION :: 3
+GL_MINOR_VERSION :: 3
+
 AppDescriptor :: struct {
 	init_fn: proc (app: ^App),
 	step_fn: proc (app: ^App),
@@ -13,9 +16,6 @@ AppDescriptor :: struct {
 	window_title: cstring,
 	window_width: i32,
 	window_height: i32,
-
-	gl_major_version: i32,
-	gl_minor_version: i32,
 
 	user_data: rawptr,
 }
@@ -51,8 +51,8 @@ app_run :: proc(descriptor: AppDescriptor) -> Error {
 	}
 
 	glfw.WindowHint(glfw.RESIZABLE, glfw.TRUE)
-	glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, descriptor.gl_major_version)
-	glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, descriptor.gl_minor_version)
+	glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, GL_MAJOR_VERSION)
+	glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, GL_MINOR_VERSION)
 	glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
 
 	if !glfw.Init() {
@@ -77,7 +77,7 @@ app_run :: proc(descriptor: AppDescriptor) -> Error {
 
 	glfw.SwapInterval(1)
 
-	gl.load_up_to(int(descriptor.gl_major_version), int(descriptor.gl_minor_version), glfw.gl_set_proc_address)
+	gl.load_up_to(GL_MAJOR_VERSION, GL_MINOR_VERSION, glfw.gl_set_proc_address)
 
 	lvm_init(&app.lvm)
 	defer lvm_destroy(&app.lvm)
