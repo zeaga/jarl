@@ -1,5 +1,6 @@
 package jarl
 
+import "base:runtime"
 import "core:log"
 import "core:time"
 import "vendor:glfw"
@@ -40,6 +41,8 @@ App :: struct {
 	window: Window,
 	input: Input,
 	lvm: LuaVm,
+	shader: Shader,
+	vao: u32,
 }
 
 app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
@@ -87,11 +90,19 @@ app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
 	glfw.SetFramebufferSizeCallback(app.window.handle, _app_size_cbfn)
 	glfw.SetKeyCallback(app.window.handle, _app_key_cbfn)
 	glfw.SetMouseButtonCallback(app.window.handle, _app_mouse_btn_cbfn)
+	glfw.SetWindowRefreshCallback(app.window.handle, _app_refresh_cbfn)
 	glfw.SetScrollCallback(app.window.handle, _app_scroll_cbfn)
 
 	glfw.SwapInterval(1)
 
 	gl.load_up_to(GL_MAJOR_VERSION, GL_MINOR_VERSION, glfw.gl_set_proc_address)
+
+	shader_create(&app.shader, #load("res/vert.glsl"), #load("res/frag.glsl"))
+	defer shader_destroy(&app.shader)
+
+	gl.GenVertexArrays(1, &app.vao)
+	gl.BindVertexArray(app.vao)
+	defer gl.DeleteVertexArrays(1, &app.vao)
 
 	lvm_create(&app.lvm)
 	defer lvm_destroy(&app.lvm)
@@ -119,13 +130,7 @@ app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
 			break
 		}
 
-		gl.ClearColor(0.2, 0.3, 0.3, 1.0)
-		gl.Clear(gl.COLOR_BUFFER_BIT)
-		if app.draw_fn != nil {
-			app.draw_fn(&app)
-		}
-
-		glfw.SwapBuffers(app.window.handle)
+		app_render(&app)
 	}
 
 	if app.quit_fn != nil {
@@ -133,6 +138,22 @@ app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
 	}
 
 	return true
+}
+
+app_render :: proc(app: ^App) {
+	gl.ClearColor(0.2, 0.3, 0.3, 1.0)
+	gl.Clear(gl.COLOR_BUFFER_BIT)
+
+	shader_bind(&app.shader)
+	gl.BindVertexArray(app.vao)
+
+	if app.draw_fn != nil {
+		app.draw_fn(app)
+	}
+
+	gl.DrawArrays(gl.TRIANGLES, 0, 3)
+
+	window_swap_buffers(&app.window)
 }
 
 @(private="file") _app_mouse_pos_cbfn :: proc "c" (window: glfw.WindowHandle, xpos, ypos: f64) {
@@ -160,6 +181,12 @@ app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
 	if button >= 0 && button <= glfw.MOUSE_BUTTON_LAST {
 		app.input.mbtns_current[button] = action != glfw.RELEASE
 	}
+}
+
+@(private="file") _app_refresh_cbfn :: proc "c" (window: glfw.WindowHandle) {
+	app := (^App)(glfw.GetWindowUserPointer(window))
+	context = runtime.default_context()
+	app_render(app)
 }
 
 @(private="file") _app_scroll_cbfn :: proc "c" (window: glfw.WindowHandle, xoffset, yoffset: f64) {
