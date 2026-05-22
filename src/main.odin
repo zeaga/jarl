@@ -5,11 +5,6 @@ import "core:fmt"
 import "jarl"
 
 step_fn :: proc(app: ^jarl.App) {
-	iter: i32
-	for key in jarl.input_iter_keys_pressed(&app.input, &iter) {
-		jarl.lvm_run_string(&app.lvm, "print('Key pressed!')")
-	}
-
 	if jarl.input_is_key_pressed(&app.input, .Escape) {
 		app.running = false
 	}
@@ -17,8 +12,8 @@ step_fn :: proc(app: ^jarl.App) {
 
 main :: proc() {
 	descriptor: jarl.AppDescriptor = {
-		gl_major_version = 3,
-		gl_minor_version = 3,
+		gl_major_version = 4,
+		gl_minor_version = 5,
 
 		init_fn = nil,
 		step_fn = step_fn,
