@@ -2,6 +2,13 @@ package jarl
 
 import "vendor:glfw"
 
+MouseMode :: enum {
+	Normal   = glfw.CURSOR_NORMAL,
+	Hidden   = glfw.CURSOR_HIDDEN,
+	Disabled = glfw.CURSOR_DISABLED,
+	Captured = glfw.CURSOR_CAPTURED,
+}
+
 MouseButton :: enum {
 	Left   = glfw.MOUSE_BUTTON_LEFT,
 	Right  = glfw.MOUSE_BUTTON_RIGHT,

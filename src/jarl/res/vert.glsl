@@ -1,6 +1,6 @@
-#version 330 core
+#version 430 core
 
-out vec2 uv;
+out vec2 ndc;
 
 void main() {
 	vec2 verts[3] = vec2[](
@@ -9,5 +9,5 @@ void main() {
 		vec2(-1,  3)
 	);
 	gl_Position = vec4(verts[gl_VertexID], 0, 1);
-	uv = verts[gl_VertexID];
+	ndc = verts[gl_VertexID];
 }
