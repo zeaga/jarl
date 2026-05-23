@@ -15,10 +15,10 @@ camera_get_tan_half_fov :: proc(camera: ^Camera) -> f32 {
 }
 
 camera_get_rotation_matrix :: proc(camera: ^Camera) -> matrix[3, 3]f32 {
-	cos_pitch := math.cos(camera.pitch)
-	sin_pitch := math.sin(camera.pitch)
-	cos_yaw := math.cos(camera.yaw)
-	sin_yaw := math.sin(camera.yaw)
+	cos_pitch := math.cos(camera.pitch * math.RAD_PER_DEG)
+	sin_pitch := math.sin(camera.pitch * math.RAD_PER_DEG)
+	cos_yaw := math.cos(camera.yaw * math.RAD_PER_DEG)
+	sin_yaw := math.sin(camera.yaw * math.RAD_PER_DEG)
 
 	forward := [3]f32 {
 		cos_pitch * sin_yaw,
@@ -28,10 +28,9 @@ camera_get_rotation_matrix :: proc(camera: ^Camera) -> matrix[3, 3]f32 {
 	right := linalg.normalize(linalg.cross(forward, [3]f32{0, 1, 0}))
 	up := linalg.cross(right, forward)
 
-	// Rotation order: yaw (Y) then pitch (X)
 	return {
-		cos_yaw, 0, sin_yaw,
-		sin_pitch * sin_yaw, cos_pitch, -sin_pitch * cos_yaw,
-		-cos_pitch * sin_yaw, sin_pitch, cos_pitch * cos_yaw,
+		right.x,   up.x,   forward.x,
+		right.y,   up.y,   forward.y,
+		right.z,   up.z,   forward.z,
 	}
 }

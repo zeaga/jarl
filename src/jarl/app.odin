@@ -9,7 +9,7 @@ import "vendor:glfw"
 import gl "vendor:OpenGL"
 
 GL_MAJOR_VERSION :: 4
-GL_MINOR_VERSION :: 3
+GL_MINOR_VERSION :: 5
 
 AppDescriptor :: struct {
 	window_title: cstring,
@@ -38,6 +38,7 @@ App :: struct {
 	lvm: LuaVm,
 	shader: Shader,
 	vao: u32,
+	scene: Scene,
 }
 
 app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
@@ -83,8 +84,12 @@ app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
 	gl.BindVertexArray(app.vao)
 	defer gl.DeleteVertexArrays(1, &app.vao)
 
-	lvm_create(&app.lvm)
-	defer lvm_destroy(&app.lvm)
+	scene_create(&app.scene)
+	defer scene_destroy(&app.scene)
+
+	// TODO: re-enable Lua VM
+	// lvm_create(&app.lvm)
+	// defer lvm_destroy(&app.lvm)
 
 	app_init(&app)
 
@@ -103,6 +108,7 @@ app_init :: proc(app: ^App) {
 
 	// INIT HERE
 	app.camera.position.z = 10.0
+	app.camera.yaw = 180.0
 	app.camera.fov = 45.0
 	app.clear_color = {0.2, 0.3, 0.5, 1.0}
 }
@@ -137,13 +143,13 @@ app_update :: proc(app: ^App) {
 cam_update :: proc(app: ^App) {
 	delta_time := cast(f32)time.duration_seconds(app.delta_time)
 	
-	LOOK_SPEED :: 0.7
+	LOOK_SPEED :: 40.0
 	MOVE_SPEED :: 5.0
 
 	mx, my := input_get_mouse_delta(&app.input)
 	if mx != 0 || my != 0 {
 		app.camera.yaw -= cast(f32)mx * delta_time * LOOK_SPEED
-		app.camera.pitch -= cast(f32)my * delta_time * LOOK_SPEED
+		app.camera.pitch += cast(f32)my * delta_time * LOOK_SPEED
 		app.camera.pitch = math.clamp(app.camera.pitch, -89.0, 89.0)
 	}
 
@@ -177,6 +183,8 @@ cam_update :: proc(app: ^App) {
 }
 
 app_render :: proc(app: ^App) {
+	delta_time := cast(f32)time.duration_seconds(app.delta_time)
+
 	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 
@@ -189,12 +197,18 @@ app_render :: proc(app: ^App) {
 	shader_set_uniform(&app.shader, "cam_tan_half_fov", camera_get_tan_half_fov(&app.camera))
 	shader_set_uniform(&app.shader, "resolution", cast(f32)app.input.window_size.x, cast(f32)app.input.window_size.y)
 	shader_set_uniform(&app.shader, "clear_color", &app.clear_color)
-	shader_set_uniform(&app.shader, "ray_max_steps", 128)
+	shader_set_uniform(&app.shader, "frame_time", delta_time)
+
+	shader_set_uniform(&app.shader, "ray_max_steps", 1000)
 	shader_set_uniform(&app.shader, "ray_max_dist", 200.0)
 
-	// DRAW HERE
+	scene_add_sphere(&app.scene, {0, 0, 0}, 1.0, {1.0, 0.3, 0.1, 1})
+	scene_add_box(&app.scene, {-2, 0, 0}, 1.0, 1.0, 2.0, {0.1, 0.3, 1.0, 1})
 
+	scene_bind(&app.scene)
+	shader_set_uniform(&app.shader, "primitive_count", cast(i32)len(app.scene.primitives))
 	gl.DrawArrays(gl.TRIANGLES, 0, 3)
+	scene_flush(&app.scene)
 
 	window_swap_buffers(&app.window)
 }
