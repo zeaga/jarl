@@ -11,6 +11,9 @@ LuaVm :: struct {
 }
 
 lvm_create :: proc(lvm: ^LuaVm) {
+	if !LUA_ENABLED {
+		return
+	}
 	lvm.state = lua.L_newstate()
 	lua.L_openlibs(lvm.state)
 
@@ -35,6 +38,9 @@ lvm_create :: proc(lvm: ^LuaVm) {
 }
 
 lvm_run_string :: proc(lvm: ^LuaVm, code: cstring) -> (ok: bool) {
+	if !LUA_ENABLED {
+		return
+	}
 	if lua.L_dostring(lvm.state, code) != 0 {
 		err := lua.tostring(lvm.state, -1)
 		log.error(err)
@@ -45,5 +51,8 @@ lvm_run_string :: proc(lvm: ^LuaVm, code: cstring) -> (ok: bool) {
 }
 
 lvm_destroy :: proc(lvm: ^LuaVm) {
+	if !LUA_ENABLED {
+		return
+	}
 	lua.close(lvm.state)
 } 

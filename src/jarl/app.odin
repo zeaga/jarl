@@ -3,13 +3,9 @@ package jarl
 import "base:runtime"
 import "core:log"
 import "core:math"
-import "core:math/linalg"
-import "core:time"
 import "vendor:glfw"
 import gl "vendor:OpenGL"
-
-GL_MAJOR_VERSION :: 4
-GL_MINOR_VERSION :: 5
+import im "shared:imgui"
 
 AppDescriptor :: struct {
 	window_title: cstring,
@@ -17,32 +13,30 @@ AppDescriptor :: struct {
 	window_height: i32,
 
 	log_level: log.Level,
-
-	user_data: rawptr,
 }
 
 App :: struct {
-	start_time: time.Time,
-	last_frame: time.Time,
-	run_time: time.Duration,
-	delta_time: time.Duration,
-	running: bool,
-
-	user_data: rawptr,
-	ctx: runtime.Context,
-	camera: Camera,
 	clear_color: [4]f32,
+	ctx: runtime.Context,
+	running: bool,
+	vao: u32,
 
-	window: Window,
+	debug_mode: bool,
+	
+	camera: Camera,
 	input: Input,
 	lvm: LuaVm,
-	shader: Shader,
-	vao: u32,
+	imstate: ImState,
 	scene: Scene,
+	shader: Shader,
+	timing: Timing,
+	window: Window,
 }
 
 app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
 	app: App
+
+	app.debug_mode = DEBUG_MODE
 	
 	log_level := descriptor.log_level != nil ? descriptor.log_level : log.Level.Info
 	context.logger = log.create_console_logger(log_level)
@@ -72,12 +66,12 @@ app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
 	glfw.SetFramebufferSizeCallback(app.window.handle, _app_size_cbfn)
 	glfw.SetKeyCallback(app.window.handle, _app_key_cbfn)
 	glfw.SetMouseButtonCallback(app.window.handle, _app_mouse_btn_cbfn)
-	glfw.SetWindowRefreshCallback(app.window.handle, _app_refresh_cbfn)
+	// glfw.SetWindowRefreshCallback(app.window.handle, _app_refresh_cbfn)
 	glfw.SetScrollCallback(app.window.handle, _app_scroll_cbfn)
 
 	gl.load_up_to(GL_MAJOR_VERSION, GL_MINOR_VERSION, glfw.gl_set_proc_address)
 
-	shader_create(&app.shader, #load("res/vert.glsl"), #load("res/frag.glsl"))
+	shader_create(&app.shader, GLSL_VERSION + "\n" + #load("res/vert.glsl"), GLSL_VERSION + "\n" + #load("res/frag.glsl"))
 	defer shader_destroy(&app.shader)
 
 	gl.GenVertexArrays(1, &app.vao)
@@ -87,9 +81,14 @@ app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
 	scene_create(&app.scene)
 	defer scene_destroy(&app.scene)
 
-	// TODO: re-enable Lua VM
-	// lvm_create(&app.lvm)
-	// defer lvm_destroy(&app.lvm)
+	imgui_init(&app, &app.imstate)
+	defer imgui_destroy()
+
+	app.running = true
+	timing_init(&app.timing)
+
+	lvm_create(&app.lvm)
+	defer lvm_destroy(&app.lvm)
 
 	app_init(&app)
 
@@ -102,10 +101,6 @@ app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
 }
 
 app_init :: proc(app: ^App) {
-	app.start_time = time.now()
-	app.last_frame = app.start_time
-	app.running = true
-
 	// INIT HERE
 	app.camera.position.z = 10.0
 	app.camera.yaw = 180.0
@@ -114,19 +109,22 @@ app_init :: proc(app: ^App) {
 }
 
 app_update :: proc(app: ^App) {
-	current_time := time.now()
-	app.delta_time = time.diff(app.last_frame, current_time)
-	app.run_time = time.diff(app.start_time, current_time)
-	app.last_frame = current_time
+	timing_update(&app.timing)
 
-	input_begin_frame(&app.input)
+	input_update(&app.input)
 	glfw.PollEvents()
+
+	imgui_update(app, &app.imstate)
 
 	if input_is_key_down(&app.input, .Escape) {
 		app.running = false
 	}
 
-	if input_is_mouse_pressed(&app.input, .Left) {
+	if input_is_key_pressed(&app.input, .GraveAccent) {
+		app.debug_mode = !app.debug_mode
+	}
+
+	if input_is_mouse_pressed(&app.input, .Left) && (!IMGUI_ENABLED || !im.GetIO().WantCaptureMouse) {
 		window_set_mouse_mode(&app.window, .Disabled)
 	}
 
@@ -135,55 +133,13 @@ app_update :: proc(app: ^App) {
 	}
 
 	if window_get_mouse_mode(&app.window) != .Normal {
-		cam_update(app)
+		cam_update(&app.camera, app)
 	}
 	// UPDATE HERE
 }
 
-cam_update :: proc(app: ^App) {
-	delta_time := cast(f32)time.duration_seconds(app.delta_time)
-	
-	LOOK_SPEED :: 40.0
-	MOVE_SPEED :: 5.0
-
-	mx, my := input_get_mouse_delta(&app.input)
-	if mx != 0 || my != 0 {
-		app.camera.yaw -= cast(f32)mx * delta_time * LOOK_SPEED
-		app.camera.pitch += cast(f32)my * delta_time * LOOK_SPEED
-		app.camera.pitch = math.clamp(app.camera.pitch, -89.0, 89.0)
-	}
-
-	move_dir := [3]f32{0, 0, 0}
-	if input_is_key_down(&app.input, .A) {
-		move_dir.x -= 1
-	}
-	if input_is_key_down(&app.input, .D) {
-		move_dir.x += 1
-	}
-	if input_is_key_down(&app.input, .Space) {
-		move_dir.y += 1
-	}
-	if input_is_key_down(&app.input, .LeftControl) {
-		move_dir.y -= 1
-	}
-	if input_is_key_down(&app.input, .W) {
-		move_dir.z -= 1
-	}
-	if input_is_key_down(&app.input, .S) {
-		move_dir.z += 1
-	}
-
-	if move_dir.x != 0 || move_dir.y != 0 || move_dir.z != 0 {
-		move_dir = linalg.normalize(move_dir)
-		rot_mtx := camera_get_rotation_matrix(&app.camera)
-		move_world := rot_mtx * move_dir
-		app.camera.position += move_world * delta_time * MOVE_SPEED
-	}
-
-}
-
 app_render :: proc(app: ^App) {
-	delta_time := cast(f32)time.duration_seconds(app.delta_time)
+	dt := app.timing.delta_time
 
 	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
 	gl.Clear(gl.COLOR_BUFFER_BIT)
@@ -191,23 +147,21 @@ app_render :: proc(app: ^App) {
 	shader_bind(&app.shader)
 	gl.BindVertexArray(app.vao)
 
-	rot_mtx := camera_get_rotation_matrix(&app.camera)
-	shader_set_uniform(&app.shader, "cam_position", &app.camera.position)
-	shader_set_uniform(&app.shader, "cam_rotation", &rot_mtx)
-	shader_set_uniform(&app.shader, "cam_tan_half_fov", camera_get_tan_half_fov(&app.camera))
-	shader_set_uniform(&app.shader, "resolution", cast(f32)app.input.window_size.x, cast(f32)app.input.window_size.y)
-	shader_set_uniform(&app.shader, "clear_color", &app.clear_color)
-	shader_set_uniform(&app.shader, "frame_time", delta_time)
+	shader_set_uniforms(app, &app.shader)
 
-	shader_set_uniform(&app.shader, "ray_max_steps", 1000)
-	shader_set_uniform(&app.shader, "ray_max_dist", 200.0)
+	t := math.sin(app.timing.run_time)
 
-	scene_add_sphere(&app.scene, {0, 0, 0}, 1.0, {1.0, 0.3, 0.1, 1})
-	scene_add_box(&app.scene, {-2, 0, 0}, 1.0, 1.0, 2.0, {0.1, 0.3, 1.0, 1})
+	scene_add_sphere(&app.scene, {0, 0, 0}, t / 2 + 1.5, {max(0,t), 1.0, max(0,-t), 1})
+	scene_add_box(&app.scene, {4, t, 0}, 1.0, t + 2.0, 1.0, {0.1, 0.3, 1.0, 1})
 
 	scene_bind(&app.scene)
 	shader_set_uniform(&app.shader, "primitive_count", cast(i32)len(app.scene.primitives))
 	gl.DrawArrays(gl.TRIANGLES, 0, 3)
+
+	if IMGUI_ENABLED {
+		imgui_render()
+	}
+
 	scene_flush(&app.scene)
 
 	window_swap_buffers(&app.window)

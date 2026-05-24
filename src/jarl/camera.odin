@@ -34,3 +34,53 @@ camera_get_rotation_matrix :: proc(camera: ^Camera) -> matrix[3, 3]f32 {
 		right.z,   up.z,   forward.z,
 	}
 }
+
+cam_update :: proc(camera: ^Camera, app: ^App) {
+	dt := app.timing.delta_time
+	
+	LOOK_SPEED :: 40.0
+	MOVE_SPEED :: 5.0
+	ALT_MOD :: 0.1
+	SHIFT_MOD :: 10.0
+
+	mx, my := input_get_mouse_delta(&app.input)
+	if mx != 0 || my != 0 {
+		app.camera.yaw -= cast(f32)mx * dt * LOOK_SPEED
+		app.camera.pitch += cast(f32)my * dt * LOOK_SPEED
+		app.camera.pitch = math.clamp(app.camera.pitch, -89.0, 89.0)
+	}
+
+	move_dir := [3]f32{0, 0, 0}
+	if input_is_key_down(&app.input, .A) {
+		move_dir.x -= 1
+	}
+	if input_is_key_down(&app.input, .D) {
+		move_dir.x += 1
+	}
+	if input_is_key_down(&app.input, .Space) {
+		move_dir.y += 1
+	}
+	if input_is_key_down(&app.input, .LeftControl) {
+		move_dir.y -= 1
+	}
+	if input_is_key_down(&app.input, .W) {
+		move_dir.z -= 1
+	}
+	if input_is_key_down(&app.input, .S) {
+		move_dir.z += 1
+	}
+
+	if move_dir.x != 0 || move_dir.y != 0 || move_dir.z != 0 {
+		move_dir = linalg.normalize(move_dir)
+		rot_mtx := camera_get_rotation_matrix(camera)
+		move_world := rot_mtx * move_dir
+		speed: f32 = MOVE_SPEED
+		if input_is_key_down(&app.input, .LeftAlt) {
+			speed *= ALT_MOD
+		}
+		if input_is_key_down(&app.input, .LeftShift) {
+			speed *= SHIFT_MOD
+		}
+		app.camera.position += move_world * dt * speed
+	}
+}

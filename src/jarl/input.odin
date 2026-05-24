@@ -17,7 +17,7 @@ Input :: struct {
 	window_resized: bool,
 }
 
-input_begin_frame :: proc(input: ^Input) {
+input_update :: proc(input: ^Input) {
 	input.window_resized = false
 	input.scroll_delta = {0, 0}
 	input.mouse_delta = {0, 0}

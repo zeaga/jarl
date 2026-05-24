@@ -1,5 +1,3 @@
-#version 450 core
-
 const float EPSILON = 0.0001;
 
 // uniform float time;
@@ -8,10 +6,10 @@ uniform mat3 cam_rotation;
 uniform float cam_tan_half_fov;
 uniform vec2 resolution;
 uniform vec4 clear_color;
-uniform float frame_time;
 
 uniform int ray_max_steps;
 uniform float ray_max_dist;
+uniform float ray_wrap_dist;
 
 uniform int primitive_count;
 
@@ -80,12 +78,23 @@ MapResult map(vec3 p) {
 MapResult raymarch(vec3 ray_pos, vec3 ray_dir) {
 	float t = 0.0;
 	for (int i = 0; i < ray_max_steps; i++) {
-		MapResult comp = map(ray_pos + ray_dir * t);
+		vec3 p = ray_pos + ray_dir * t;
+		if (ray_wrap_dist > 0.0) p = mod(p + ray_wrap_dist * 0.5, ray_wrap_dist) - ray_wrap_dist * 0.5;
+		MapResult comp = map(p);
 		if (comp.dist < EPSILON) return MapResult(t, comp.id);
 		t += comp.dist;
 		if (t > ray_max_dist) return MapResult(-1.0, -1);
 	}
 	return MapResult(-1.0, -1);
+}
+
+vec3 calc_normal(vec3 p) {
+	vec2 e = vec2(EPSILON, 0.0);
+	return normalize(vec3(
+		map(p + e.xyy).dist - map(p - e.xyy).dist,
+		map(p + e.yxy).dist - map(p - e.yxy).dist,
+		map(p + e.yyx).dist - map(p - e.yyx).dist
+	));
 }
 
 void main() {
@@ -99,6 +108,7 @@ void main() {
 	}
 
 	vec3 p = ray_pos + ray_dir * result.dist;
+	if (ray_wrap_dist > 0.0) p = mod(p + ray_wrap_dist * 0.5, ray_wrap_dist) - ray_wrap_dist * 0.5;
 
 	vec3 n = calc_normal(p);
 	vec3 light = normalize(vec3(1, 2, 3));

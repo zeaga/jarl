@@ -7,6 +7,9 @@ import gl "vendor:OpenGL"
 
 Shader :: struct {
 	program: u32,
+	ray_max_steps: i32,
+	ray_max_dist: f32,
+	ray_wrap_dist: f32,
 }
 
 @(private="file")
@@ -48,6 +51,9 @@ shader_create :: proc(shader: ^Shader, vertex_src: string, fragment_src: string)
 	gl.GetProgramiv(program, gl.LINK_STATUS, &success)
 	if success == 1 {
 		shader.program = program
+		shader.ray_max_dist = SHADER_DEFAULT_RAY_MAX_DIST
+		shader.ray_max_steps = SHADER_DEFAULT_RAY_MAX_STEPS
+		shader.ray_wrap_dist = SHADER_DEFAULT_RAY_WRAP_DIST
 		return
 	}
 
@@ -59,6 +65,20 @@ shader_create :: proc(shader: ^Shader, vertex_src: string, fragment_src: string)
 
 	log.fatal("Shader linking failed!", strings.string_from_ptr(&log_str[0], int(log_length)), sep = "\n")
 	runtime.exit(1)
+}
+
+shader_set_uniforms :: proc(app: ^App, shader: ^Shader) {
+	rot_mtx := camera_get_rotation_matrix(&app.camera)
+	shader_set_uniform(&app.shader, "cam_position", &app.camera.position)
+	shader_set_uniform(&app.shader, "cam_rotation", &rot_mtx)
+	shader_set_uniform(&app.shader, "cam_tan_half_fov", camera_get_tan_half_fov(&app.camera))
+	shader_set_uniform(&app.shader, "resolution", cast(f32)app.input.window_size.x, cast(f32)app.input.window_size.y)
+	shader_set_uniform(&app.shader, "clear_color", &app.clear_color)
+	// shader_set_uniform(&app.shader, "frame_time", delta_time)
+
+	shader_set_uniform(&app.shader, "ray_max_steps", shader.ray_max_steps)
+	shader_set_uniform(&app.shader, "ray_max_dist", shader.ray_max_dist)
+	shader_set_uniform(&app.shader, "ray_wrap_dist", shader.ray_wrap_dist)
 }
 
 shader_bind :: proc(shader: ^Shader) {
