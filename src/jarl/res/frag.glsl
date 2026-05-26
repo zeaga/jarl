@@ -9,7 +9,6 @@ uniform vec4 clear_color;
 
 uniform int ray_max_steps;
 uniform float ray_max_dist;
-uniform float ray_wrap_dist;
 
 uniform int primitive_count;
 
@@ -78,9 +77,7 @@ MapResult map(vec3 p) {
 MapResult raymarch(vec3 ray_pos, vec3 ray_dir) {
 	float t = 0.0;
 	for (int i = 0; i < ray_max_steps; i++) {
-		vec3 p = ray_pos + ray_dir * t;
-		if (ray_wrap_dist > 0.0) p = mod(p + ray_wrap_dist * 0.5, ray_wrap_dist) - ray_wrap_dist * 0.5;
-		MapResult comp = map(p);
+		MapResult comp = map(ray_pos + ray_dir * t);
 		if (comp.dist < EPSILON) return MapResult(t, comp.id);
 		t += comp.dist;
 		if (t > ray_max_dist) return MapResult(-1.0, -1);
@@ -108,7 +105,6 @@ void main() {
 	}
 
 	vec3 p = ray_pos + ray_dir * result.dist;
-	if (ray_wrap_dist > 0.0) p = mod(p + ray_wrap_dist * 0.5, ray_wrap_dist) - ray_wrap_dist * 0.5;
 
 	vec3 n = calc_normal(p);
 	vec3 light = normalize(vec3(1, 2, 3));

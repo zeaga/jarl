@@ -1,6 +1,7 @@
 package jarl
 
 import "base:runtime"
+import "core:fmt"
 import "core:log"
 import "core:strings"
 import gl "vendor:OpenGL"
@@ -9,13 +10,12 @@ Shader :: struct {
 	program: u32,
 	ray_max_steps: i32,
 	ray_max_dist: f32,
-	ray_wrap_dist: f32,
 }
 
 @(private="file")
 _shader_compile_from_source :: proc(shader_type: u32, source: string) -> u32 {
-	cstr := strings.clone_to_cstring(source, context.temp_allocator)
-	length := i32(len(source))
+	cstr := strings.clone_to_cstring(fmt.aprintf("{}\n{}", GLSL_VERSION, source), context.temp_allocator)
+	length := i32(len(cstr))
 	shader := gl.CreateShader(shader_type)
 	gl.ShaderSource(shader, 1, &cstr, &length)
 	gl.CompileShader(shader)
@@ -36,9 +36,9 @@ _shader_compile_from_source :: proc(shader_type: u32, source: string) -> u32 {
 	runtime.exit(1)
 }
 
-shader_create :: proc(shader: ^Shader, vertex_src: string, fragment_src: string) {
-	vertex_shader := _shader_compile_from_source(gl.VERTEX_SHADER, vertex_src)
-	fragment_shader := _shader_compile_from_source(gl.FRAGMENT_SHADER, fragment_src)
+shader_create :: proc(shader: ^Shader) {
+	vertex_shader := _shader_compile_from_source(gl.VERTEX_SHADER, #load("res/vert.glsl"))
+	fragment_shader := _shader_compile_from_source(gl.FRAGMENT_SHADER, #load("res/frag.glsl"))
 
 	program := gl.CreateProgram()
 	gl.AttachShader(program, vertex_shader)
@@ -53,7 +53,6 @@ shader_create :: proc(shader: ^Shader, vertex_src: string, fragment_src: string)
 		shader.program = program
 		shader.ray_max_dist = SHADER_DEFAULT_RAY_MAX_DIST
 		shader.ray_max_steps = SHADER_DEFAULT_RAY_MAX_STEPS
-		shader.ray_wrap_dist = SHADER_DEFAULT_RAY_WRAP_DIST
 		return
 	}
 
@@ -78,7 +77,6 @@ shader_set_uniforms :: proc(app: ^App, shader: ^Shader) {
 
 	shader_set_uniform(&app.shader, "ray_max_steps", shader.ray_max_steps)
 	shader_set_uniform(&app.shader, "ray_max_dist", shader.ray_max_dist)
-	shader_set_uniform(&app.shader, "ray_wrap_dist", shader.ray_wrap_dist)
 }
 
 shader_bind :: proc(shader: ^Shader) {

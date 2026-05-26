@@ -91,13 +91,6 @@ imgui_ui :: proc(app: ^App, imstate: ^ImState) {
 		im.SeparatorText("Rendering")
 		im.SliderInt("Ray max marches", &app.shader.ray_max_steps, 1, 5000)
 		im.SliderFloat("Ray max distance", &app.shader.ray_max_dist, 1.0, 500.0)
-		wrap_dist := abs(app.shader.ray_wrap_dist)
-		wrap := app.shader.ray_wrap_dist > 0.0
-		im.Checkbox("Wrap rays?", &wrap)
-		im.BeginDisabled(!wrap)
-		im.SliderFloat("Ray wrapping distance", &wrap_dist, 1.0, app.shader.ray_max_dist)
-		im.EndDisabled()
-		app.shader.ray_wrap_dist = wrap ? wrap_dist : -wrap_dist
 	}
 	im.End()
 }

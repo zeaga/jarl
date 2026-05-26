@@ -71,7 +71,7 @@ app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
 
 	gl.load_up_to(GL_MAJOR_VERSION, GL_MINOR_VERSION, glfw.gl_set_proc_address)
 
-	shader_create(&app.shader, GLSL_VERSION + "\n" + #load("res/vert.glsl"), GLSL_VERSION + "\n" + #load("res/frag.glsl"))
+	shader_create(&app.shader)
 	defer shader_destroy(&app.shader)
 
 	gl.GenVertexArrays(1, &app.vao)
