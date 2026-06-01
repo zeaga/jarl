@@ -9,6 +9,7 @@ uniform vec4 clear_color;
 
 uniform int ray_max_steps;
 uniform float ray_max_dist;
+uniform float ray_epsilon;
 
 uniform int primitive_count;
 
@@ -95,16 +96,15 @@ vec3 calc_normal(vec3 p) {
 }
 
 void main() {
-	vec3 ray_pos = cam_position;
 	vec3 ray_dir = calc_ray_dir(ndc);
 
-	MapResult result = raymarch(ray_pos, ray_dir);
+	MapResult result = raymarch(cam_position, ray_dir);
 	if (result.id < 0) {
 		fragColor = clear_color;
 		return;
 	}
 
-	vec3 p = ray_pos + ray_dir * result.dist;
+	vec3 p = cam_position + ray_dir * result.dist;
 
 	vec3 n = calc_normal(p);
 	vec3 light = normalize(vec3(1, 2, 3));

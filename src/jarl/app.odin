@@ -151,8 +151,8 @@ app_render :: proc(app: ^App) {
 
 	t := math.sin(app.timing.run_time)
 
-	scene_add_sphere(&app.scene, {0, 0, 0}, t / 2 + 1.5, {max(0,t), 1.0, max(0,-t), 1})
-	scene_add_box(&app.scene, {4, t, 0}, 1.0, t + 2.0, 1.0, {0.1, 0.3, 1.0, 1})
+	// scene_add_sphere(&app.scene, {0, 0, 0}, t / 2 + 1.5, {max(0,t), 1.0, max(0,-t), 1})
+	// scene_add_box(&app.scene, {4, t, 0}, 1.0, t + 2.0, 1.0, {0.1, 0.3, 1.0, 1})
 
 	scene_bind(&app.scene)
 	shader_set_uniform(&app.shader, "primitive_count", cast(i32)len(app.scene.primitives))
@@ -162,7 +162,7 @@ app_render :: proc(app: ^App) {
 		imgui_render()
 	}
 
-	scene_flush(&app.scene)
+	// scene_flush(&app.scene)
 
 	window_swap_buffers(&app.window)
 }

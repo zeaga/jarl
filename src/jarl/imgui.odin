@@ -1,5 +1,7 @@
 package jarl
 
+import "core:fmt"
+
 import im_glfw "shared:imgui/imgui_impl_glfw"
 import im_gl "shared:imgui/imgui_impl_opengl3"
 import im "shared:imgui"
@@ -73,6 +75,7 @@ imgui_ui :: proc(app: ^App, imstate: ^ImState) {
 	// im.End()
 
 	im.SetNextWindowPos({0, menuh}, .FirstUseEver, {0, 0})
+	im.SetNextWindowSizeConstraints({300, 100}, {cast(f32)scrw * 0.25, cast(f32)scrh - menuh})
 	if im.Begin("Debug", nil, {.AlwaysAutoResize, .NoResize}) {
 		im.Text("Camera")
 		im.InputFloat3("Position", &app.camera.position)
@@ -91,8 +94,56 @@ imgui_ui :: proc(app: ^App, imstate: ^ImState) {
 		im.SeparatorText("Rendering")
 		im.SliderInt("Ray max marches", &app.shader.ray_max_steps, 1, 5000)
 		im.SliderFloat("Ray max distance", &app.shader.ray_max_dist, 1.0, 500.0)
+
+		imgui_ui_scene(app, imstate)
 	}
 	im.End()
+}
+
+imgui_ui_scene :: proc(app: ^App, imstate: ^ImState) {
+	im.SeparatorText("Scene")
+	for i in 0..< len(app.scene.primitives) {
+		primitive := &app.scene.primitives[i]
+		position: [3]f32 = {primitive.position[0], primitive.position[1], primitive.position[2]}
+		im.PushID(fmt.ctprintf("prim_{}", i))
+		if !im.CollapsingHeader(fmt.ctprintf("Object {}", i)) {
+			im.Spacing()
+			im.PopID()
+			continue
+		}
+		im.Indent(10)
+		if im.BeginCombo("Type", fmt.ctprintf("{}", primitive.type)) {
+			for t in PrimitiveType {
+				if im.Selectable(fmt.ctprintf("{}", t), primitive.type == t) {
+					primitive.type = t
+				}
+			}
+			im.EndCombo()
+		}
+
+		im.InputFloat3("Position", &position)
+
+		switch cast(PrimitiveType)primitive.type {
+		case .Sphere:
+			im.SliderFloat("Radius", &primitive.param0, 0.1, 10.0, "%.2f", {.Logarithmic})
+		case .Box:
+			im.SliderFloat("Width", &primitive.param0, 0.1, 10.0, "%.2f", {.Logarithmic})
+			im.SliderFloat("Height", &primitive.param1, 0.1, 10.0, "%.2f", {.Logarithmic})
+			im.SliderFloat("Depth", &primitive.param2, 0.1, 10.0, "%.2f", {.Logarithmic})
+		}
+
+		im.ColorEdit4("Color", &primitive.color)
+		primitive.position = {position[0], position[1], position[2], primitive.position[3]}
+		if im.Button("Remove") {
+			ordered_remove(&app.scene.primitives, i)
+		}
+		im.Indent(-10)
+		im.Spacing()
+		im.PopID()
+	}
+	if im.Button("Add object") {
+		scene_add_box(&app.scene, {0, 0, 0}, 1.0, 1.0, 1.0, {1.0, 1.0, 1.0, 1.0})
+	}
 }
 
 imgui_render :: proc() {
