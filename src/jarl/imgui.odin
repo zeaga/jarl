@@ -77,19 +77,27 @@ imgui_ui :: proc(app: ^App, imstate: ^ImState) {
 	im.SetNextWindowPos({0, menuh}, .FirstUseEver, {0, 0})
 	im.SetNextWindowSizeConstraints({300, 100}, {cast(f32)scrw * 0.25, cast(f32)scrh - menuh})
 	if im.Begin("Debug", nil, {.AlwaysAutoResize, .NoResize}) {
-		im.Text("Camera")
-		im.InputFloat3("Position", &app.camera.position)
-		rotation := [2]f32{app.camera.yaw, app.camera.pitch}
-		im.InputFloat2("Rotation", &rotation)
-		app.camera.yaw = rotation[0]
-		app.camera.pitch = rotation[1]
-		im.SliderFloat("FOV", &app.camera.fov, 1.0, 179.0, "%.0f\xC2\xB0")
-
 		im.SeparatorText("Timing")
 		im.Text("%.1f seconds", app.timing.run_time)
 		im.Text("%d frames", app.timing.frame_count)
 		im.Text("%.3f ms/frame", app.timing.delta_time)
 		im.Text("%.1f frames/s", timing_get_fps(&app.timing))
+
+		im.PushID("Camera")
+		im.SeparatorText("Camera")
+		im.InputFloat3("Position", &app.camera.position)
+		rotation := [2]f32{app.camera.yaw, app.camera.pitch}
+		im.InputFloat2("Rotation", &rotation)
+		app.camera.yaw = rotation[0]
+		app.camera.pitch = rotation[1]
+		im.SliderFloat("FOV#camera", &app.camera.fov, 1.0, 179.0, "%.0f\xC2\xB0")
+		im.PopID()
+
+		im.PushID("Light")
+		im.SeparatorText("Light")
+		im.InputFloat3("Position", &app.scene.light_position)
+		im.ColorEdit3("Color", &app.scene.light_color)
+		im.PopID()
 		
 		im.SeparatorText("Rendering")
 		im.SliderInt("Ray max marches", &app.shader.ray_max_steps, 1, 5000)

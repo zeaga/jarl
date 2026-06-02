@@ -7,6 +7,9 @@ uniform float cam_tan_half_fov;
 uniform vec2 resolution;
 uniform vec4 clear_color;
 
+uniform vec3 light_position;
+uniform vec3 light_color;
+
 uniform int ray_max_steps;
 uniform float ray_max_dist;
 uniform float ray_epsilon;
@@ -107,8 +110,8 @@ void main() {
 	vec3 p = cam_position + ray_dir * result.dist;
 
 	vec3 n = calc_normal(p);
-	vec3 light = normalize(vec3(1, 2, 3));
+	vec3 light = normalize(light_position - p);
 	float diff = max(dot(n, light), 0.0);
 
-	fragColor = vec4(prims[result.id].color.rgb * diff, 1.0);
+	fragColor = vec4(prims[result.id].color.rgb * diff * light_color, 1.0);
 }

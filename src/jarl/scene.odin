@@ -19,11 +19,15 @@ Primitive :: struct #align(16) {
 Scene :: struct {
 	ssbo: u32,
 	primitives: [dynamic]Primitive,
+	light_position: [3]f32,
+	light_color: [3]f32,
 }
 
 scene_create :: proc(scene: ^Scene) {
 	gl.CreateBuffers(1, &scene.ssbo)
 	scene.primitives = make([dynamic]Primitive, 0)
+	scene.light_position = {1, 2, 3}
+	scene.light_color = {1, 1, 1}
 }
 
 scene_add_sphere :: proc(scene: ^Scene, position: [3]f32, radius: f32, color: [4]f32) {

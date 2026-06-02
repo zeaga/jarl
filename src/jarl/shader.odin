@@ -75,6 +75,9 @@ shader_set_uniforms :: proc(app: ^App, shader: ^Shader) {
 	shader_set_uniform(&app.shader, "clear_color", &app.clear_color)
 	// shader_set_uniform(&app.shader, "frame_time", delta_time)
 
+	shader_set_uniform(&app.shader, "light_position", &app.scene.light_position)
+	shader_set_uniform(&app.shader, "light_color", &app.scene.light_color)
+
 	shader_set_uniform(&app.shader, "ray_max_steps", shader.ray_max_steps)
 	shader_set_uniform(&app.shader, "ray_max_dist", shader.ray_max_dist)
 }
