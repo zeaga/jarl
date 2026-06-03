@@ -1,6 +1,6 @@
 # Jarl Engine
 
-A real-time raymarching engine written in [Odin](https://odin-lang.org/).
+A real-time raymarching engine written in [Odin](https://odin-lang.org/) using OpenGL 4.3
 
 <img width="1922" height="1112" alt="image" src="https://github.com/user-attachments/assets/ab9e835f-93be-45b7-a57b-1d9d557eefa2" />
 
