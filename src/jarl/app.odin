@@ -25,7 +25,7 @@ App :: struct {
 	
 	camera: Camera,
 	input: Input,
-	lvm: LuaVm,
+	//lvm: LuaVm,
 	imstate: ImState,
 	scene: Scene,
 	shader: Shader,
@@ -128,6 +128,10 @@ app_update :: proc(app: ^App) {
 		window_set_mouse_mode(&app.window, .Disabled)
 	}
 
+	if input_is_mouse_pressed(&app.input, .Right) && window_get_mouse_mode(&app.window) != .Normal {
+		window_set_mouse_mode(&app.window, .Normal)
+	}
+
 	if input_is_key_pressed(&app.input, .Tab) {
 		window_set_mouse_mode(&app.window, .Normal)
 	}
@@ -154,8 +158,9 @@ app_render :: proc(app: ^App) {
 	// scene_add_sphere(&app.scene, {0, 0, 0}, t / 2 + 1.5, {max(0,t), 1.0, max(0,-t), 1})
 	// scene_add_box(&app.scene, {4, t, 0}, 1.0, t + 2.0, 1.0, {0.1, 0.3, 1.0, 1})
 
-	scene_bind(&app.scene)
+	scene_upload(&app.scene)
 	shader_set_uniform(&app.shader, "primitive_count", cast(i32)len(app.scene.primitives))
+	shader_set_uniform(&app.shader, "portal_count", cast(i32)len(app.scene.portals))
 	gl.DrawArrays(gl.TRIANGLES, 0, 3)
 
 	if IMGUI_ENABLED {

@@ -54,7 +54,7 @@ imgui_ui :: proc(app: ^App, imstate: ^ImState) {
 	menuh: f32 = 0
 	if (im.BeginMainMenuBar()) {
 		if (im.BeginMenu("File")) {
-			if (im.MenuItem("Exit", "Ctrl+W")) {app.running = false}
+			if (im.MenuItem("Exit", "Esc")) {app.running = false}
 			im.EndMenu()
 		}
 		menuh = im.GetWindowSize().y
@@ -90,18 +90,13 @@ imgui_ui :: proc(app: ^App, imstate: ^ImState) {
 		im.InputFloat2("Rotation", &rotation)
 		app.camera.yaw = rotation[0]
 		app.camera.pitch = rotation[1]
-		im.SliderFloat("FOV#camera", &app.camera.fov, 1.0, 179.0, "%.0f\xC2\xB0")
-		im.PopID()
-
-		im.PushID("Light")
-		im.SeparatorText("Light")
-		im.InputFloat3("Position", &app.scene.light_position)
-		im.ColorEdit3("Color", &app.scene.light_color)
+		im.SliderFloat("FOV", &app.camera.fov, 1.0, 179.0, "%.0f\xC2\xB0")
 		im.PopID()
 		
 		im.SeparatorText("Rendering")
 		im.SliderInt("Ray max marches", &app.shader.ray_max_steps, 1, 5000)
 		im.SliderFloat("Ray max distance", &app.shader.ray_max_dist, 1.0, 500.0)
+		im.SliderInt("Ray max teleports", &app.shader.ray_max_teleports, 1, 50)
 
 		imgui_ui_scene(app, imstate)
 	}
@@ -110,11 +105,20 @@ imgui_ui :: proc(app: ^App, imstate: ^ImState) {
 
 imgui_ui_scene :: proc(app: ^App, imstate: ^ImState) {
 	im.SeparatorText("Scene")
+	im.Indent(10)
+	imgui_ui_scene_primitives(app, imstate)
+	imgui_ui_scene_portals(app, imstate)
+	im.Indent(-10)
+}
+
+imgui_ui_scene_primitives :: proc(app: ^App, imstate: ^ImState) {
+	im.SeparatorText("Primitives")
+	im.Indent(10)
 	for i in 0..< len(app.scene.primitives) {
 		primitive := &app.scene.primitives[i]
 		position: [3]f32 = {primitive.position[0], primitive.position[1], primitive.position[2]}
 		im.PushID(fmt.ctprintf("prim_{}", i))
-		if !im.CollapsingHeader(fmt.ctprintf("Object {}", i)) {
+		if !im.CollapsingHeader(fmt.ctprintf("Primitive {}", i)) {
 			im.Spacing()
 			im.PopID()
 			continue
@@ -149,9 +153,71 @@ imgui_ui_scene :: proc(app: ^App, imstate: ^ImState) {
 		im.Spacing()
 		im.PopID()
 	}
-	if im.Button("Add object") {
+	im.Indent(-4)
+	if im.Button("Add primitive") {
 		scene_add_box(&app.scene, {0, 0, 0}, 1.0, 1.0, 1.0, {1.0, 1.0, 1.0, 1.0})
 	}
+	im.Indent(-6)
+}
+
+imgui_ui_scene_portals :: proc(app: ^App, imstate: ^ImState) {
+	im.SeparatorText("Portals")
+	im.Indent(10)
+	for i in 0..< len(app.scene.portals) {
+		portal := &app.scene.portals[i]
+		im.PushID(fmt.ctprintf("portal_{}", i))
+		if !im.CollapsingHeader(fmt.ctprintf("Portal {}", i)) {
+			im.Spacing()
+			im.PopID()
+			continue
+		}
+		im.Indent(10)
+		if im.BeginCombo("Type", fmt.ctprintf("{}", portal.type)) {
+			for t in PortalType {
+				if im.Selectable(fmt.ctprintf("{}", t), portal.type == t) {
+					portal.type = t
+				}
+			}
+			im.EndCombo()
+		}
+
+		position: [3]f32 = {portal.position[0], portal.position[1], portal.position[2]}
+		rotation: [3]f32 = {portal.rotation[0], portal.rotation[1], portal.rotation[2]}
+		width: f32 = portal.half_width * 2
+		height: f32 = portal.half_height * 2
+		partner: i32 = portal.partner
+		im.InputFloat3("Position", &position)
+		im.InputFloat3("Rotation", &rotation)
+		im.SliderFloat("Width", &width, 0.1, 10.0, "%.2f", {.Logarithmic})
+		im.SliderFloat("Height", &height, 0.1, 10.0, "%.2f", {.Logarithmic})
+		im.SliderInt("Partner", &portal.partner, 0, i32(len(app.scene.portals)) - 1, "%d")
+		portal.position = {position[0], position[1], position[2], portal.position[3]}
+		portal.rotation = {rotation[0], rotation[1], rotation[2], portal.rotation[3]}
+		portal.half_width = width * 0.5
+		portal.half_height = height * 0.5
+		if portal.partner < 0 || portal.partner >= i32(len(app.scene.portals)) {
+			portal.partner = i32(i)
+		}
+
+		if im.Button("Remove") {
+			for j in 0..< len(app.scene.portals) {
+				if app.scene.portals[j].partner == i32(i) {
+					app.scene.portals[j].partner = -1
+				} else if app.scene.portals[j].partner > i32(i) {
+					app.scene.portals[j].partner -= 1
+				}
+			}
+			ordered_remove(&app.scene.portals, i)
+		}
+		im.Indent(-10)
+		im.Spacing()
+		im.PopID()
+	}
+	im.Indent(-4)
+	if im.Button("Add portal") {
+		scene_add_portal(&app.scene, {0, 0, 0}, {0, 0, 0}, .Rectangle, -1, 0.5, 1.0)
+	}
+	im.Indent(-6)
 }
 
 imgui_render :: proc() {

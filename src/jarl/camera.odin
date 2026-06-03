@@ -5,6 +5,7 @@ import "core:math/linalg"
 
 Camera :: struct {
 	position: [3]f32,
+	last_position: [3]f32,
 	pitch: f32,
 	yaw: f32,
 	fov: f32,
@@ -36,6 +37,7 @@ camera_get_rotation_matrix :: proc(camera: ^Camera) -> matrix[3, 3]f32 {
 }
 
 cam_update :: proc(camera: ^Camera, app: ^App) {
+	camera.last_position = camera.position
 	dt := app.timing.delta_time
 	
 	LOOK_SPEED :: 40.0
@@ -45,9 +47,10 @@ cam_update :: proc(camera: ^Camera, app: ^App) {
 
 	mx, my := input_get_mouse_delta(&app.input)
 	if mx != 0 || my != 0 {
-		app.camera.yaw -= cast(f32)mx * dt * LOOK_SPEED
-		app.camera.pitch += cast(f32)my * dt * LOOK_SPEED
-		app.camera.pitch = math.clamp(app.camera.pitch, -89.0, 89.0)
+		camera.yaw -= cast(f32)mx * dt * LOOK_SPEED
+		camera.pitch += cast(f32)my * dt * LOOK_SPEED
+		camera.yaw = math.mod(math.mod(camera.yaw + 180.0, 360.0) + 360.0, 360.0) - 180.0
+		camera.pitch = math.clamp(camera.pitch, -89.0, 89.0)
 	}
 
 	move_dir := [3]f32{0, 0, 0}
@@ -81,6 +84,13 @@ cam_update :: proc(camera: ^Camera, app: ^App) {
 		if input_is_key_down(&app.input, .LeftShift) {
 			speed *= SHIFT_MOD
 		}
-		app.camera.position += move_world * dt * speed
+		camera.position += move_world * dt * speed
 	}
+	
+	cam_update_portal(camera, app)
+}
+
+cam_update_portal :: proc(camera: ^Camera, app: ^App) {
+	// Check if the camera has teleported through a portal and update its position/rotation accordingly.
+	// This is necessary to prevent the camera from getting "stuck" on the portal plane or clipping through it.
 }
