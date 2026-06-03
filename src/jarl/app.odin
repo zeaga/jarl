@@ -25,7 +25,6 @@ App :: struct {
 	
 	camera: Camera,
 	input: Input,
-	lvm: LuaVm,
 	imstate: ImState,
 	scene: Scene,
 	shader: Shader,
@@ -86,9 +85,6 @@ app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
 
 	app.running = true
 	timing_init(&app.timing)
-
-	lvm_create(&app.lvm)
-	defer lvm_destroy(&app.lvm)
 
 	app_init(&app)
 
