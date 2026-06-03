@@ -25,7 +25,7 @@ App :: struct {
 	
 	camera: Camera,
 	input: Input,
-	//lvm: LuaVm,
+	lvm: LuaVm,
 	imstate: ImState,
 	scene: Scene,
 	shader: Shader,
