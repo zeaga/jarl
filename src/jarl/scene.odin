@@ -58,7 +58,8 @@ scene_create :: proc(scene: ^Scene) {
 	scene.primitives = make([dynamic]Primitive, 0)
 	scene.portals = make([dynamic]Portal, 0)
 	// scene.lights = make([dynamic]Light, 0)
-	scene_load_default(scene)
+	// scene_load_default(scene)
+	load_scene(scene, "build/playground.json")
 }
 
 scene_load_default :: proc(scene: ^Scene) {

@@ -122,7 +122,7 @@ camera_update :: proc(camera: ^Camera, app: ^App) {
 	}
 	for portal, i in app.scene.portals {
 		if portal.partner == i32(i) || portal.partner < 0 || portal.partner >= i32(len(app.scene.portals)) do continue
-		if !_camera_intersects_portal(camera, portal) { continue }
+		if !_camera_intersects_portal(camera, portal) do continue
 		partner := app.scene.portals[portal.partner]
 
 		flip :: matrix[3, 3]f32{-1, 0, 0,  0, 1, 0,  0, 0, -1}
@@ -172,10 +172,10 @@ camera_update :: proc(camera: ^Camera, app: ^App) {
 	}
 
 	denom := linalg.dot(plane_normal, dir)
-	if abs(denom) < EPSILON { return false }
+	if abs(denom) < EPSILON do return false
 
 	t := linalg.dot(plane_normal, plane_position - line_start) / denom
-	if t < 0 || t > 1 { return false }
+	if t < 0 || t > 1 do return false
 
 	hit := line_start + dir * t
 

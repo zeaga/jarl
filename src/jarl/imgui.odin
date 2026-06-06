@@ -4,21 +4,48 @@ import "core:fmt"
 import "core:log"
 import "core:math"
 import "core:os"
+import "base:runtime"
 
-save_scene :: proc(scene: ^Scene) {
+import "vendor:sdl3"
+
+save_scene_cbfn :: proc "c" (userdata: rawptr, filelist: [^]cstring, filter: i32) {
+	if filelist == nil || filelist[0] == nil {
+		return
+	}
+
+	context = runtime.default_context()
+
+	scene := cast(^Scene)userdata
+	path := string(filelist[0])
+	save_scene(scene, path)
+}
+
+load_scene_cbfn :: proc "c" (userdata: rawptr, filelist: [^]cstring, filter: i32) {
+
+	context = runtime.default_context()
+
+	log.info("test")
+	if filelist == nil || filelist[0] == nil {
+		return
+	}
+
+	scene := cast(^Scene)userdata
+	path := string(filelist[0])
+	load_scene(scene, path)
+}
+
+save_scene :: proc(scene: ^Scene, path: string) {
 	data := scene_to_json(scene, context.temp_allocator)
 	if data == "" do return
 
-	err := os.write_entire_file("scene.json", data)
+	err := os.write_entire_file(path, data)
 	if err != nil {
 		log.error("Failed to save scene to file")
-	} else {
-		log.info("Scene saved to scene.json")
 	}
 }
 
-load_scene :: proc(scene: ^Scene) {
-	data, err := os.read_entire_file("scene.json", context.temp_allocator)
+load_scene :: proc(scene: ^Scene, path: string) {
+	data, err := os.read_entire_file(path, context.temp_allocator)
 	if err != nil {
 		log.error("Failed to load scene from file")
 		return
@@ -84,6 +111,10 @@ imgui_ui :: proc(app: ^App, imstate: ^ImState) {
 	menuh: f32 = 0
 	if (im.BeginMainMenuBar()) {
 		if (im.BeginMenu("File")) {
+			filters := []sdl3.DialogFileFilter {
+				{"JSON scene files", "*.json"},
+				{"All files", "*.*"},
+			}
 			if (im.MenuItem("New Scene", "Ctrl+N")) {
 				scene_flush(&app.scene)
 			}
@@ -92,14 +123,20 @@ imgui_ui :: proc(app: ^App, imstate: ^ImState) {
 				scene_load_default(&app.scene)
 			}
 			if (im.MenuItem("Load Scene...", "Ctrl+O")) {
-				load_scene(&app.scene)
+
+	log.info("test2")
+				sdl3.ShowOpenFileDialog(load_scene_cbfn, rawptr(&app.scene), app.window.handle, raw_data(filters), 2, ".", false)
 			}
 			im.Separator()
 			if (im.MenuItem("Save", "Ctrl+S")) {
-				save_scene(&app.scene)
+				if (imstate.scene_path == "") {
+					sdl3.ShowSaveFileDialog(save_scene_cbfn, rawptr(&app.scene), app.window.handle, raw_data(filters), 2, "./scene.json")
+				} else {
+					save_scene(&app.scene, imstate.scene_path)
+				}
 			}
 			if (im.MenuItem("Save As...", "Ctrl+Shift+S")) {
-				save_scene(&app.scene)
+				sdl3.ShowSaveFileDialog(save_scene_cbfn, rawptr(&app.scene), app.window.handle, raw_data(filters), 2, "./scene.json")
 			}
 			im.Separator()
 			if (im.MenuItem("Exit", "Esc")) {

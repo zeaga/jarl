@@ -32,6 +32,9 @@ App :: struct {
 }
 
 app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
+	prof_init()
+	defer prof_deinit()
+
 	app: App
 
 	app.debug_mode = DEBUG_MODE
@@ -84,6 +87,7 @@ app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
 	app_init(&app)
 
 	for app.running && !window_should_close(&app.window) {
+		prof_frame()
 		app_update(&app)
 		app_render(&app)
 	}

@@ -70,7 +70,7 @@ shader_create :: proc(shader: ^Shader) {
 
 shader_set_uniforms :: proc(app: ^App, shader: ^Shader) {
 	rot_mtx := camera_get_rotation_matrix(&app.camera)
-	shader_set_uniform(&app.shader, "debug_mode", DEBUG_MODE)
+	// shader_set_uniform(&app.shader, "debug_mode", DEBUG_MODE)
 	shader_set_uniform(&app.shader, "cam_position", &app.camera.position)
 	shader_set_uniform(&app.shader, "cam_rotation", &rot_mtx)
 	shader_set_uniform(&app.shader, "cam_tan_half_fov", camera_get_tan_half_fov(&app.camera))
@@ -102,77 +102,77 @@ shader_get_location :: proc(self: ^Shader, name: cstring) -> (loc: i32, ok: bool
 
 _shader_set_bool :: proc(self: ^Shader, name: cstring, v: bool) -> bool {
 	loc, ok := shader_get_location(self, name)
-	if !ok {return false}
+	if !ok do return false
 	gl.Uniform1i(loc, v ? 1 : 0)
 	return true
 }
 
 _shader_set_i32 :: proc(self: ^Shader, name: cstring, v: i32) -> bool {
 	loc, ok := shader_get_location(self, name)
-	if !ok {return false}
+	if !ok do return false
 	gl.Uniform1i(loc, v)
 	return true
 }
 
 _shader_set_f32 :: proc(self: ^Shader, name: cstring, v: f32) -> bool {
 	loc, ok := shader_get_location(self, name)
-	if !ok {return false}
+	if !ok do return false
 	gl.Uniform1f(loc, v)
 	return true
 }
 
 _shader_set_vec2 :: proc(self: ^Shader, name: cstring, x, y: f32) -> bool {
 	loc, ok := shader_get_location(self, name)
-	if !ok {return false}
+	if !ok do return false
 	gl.Uniform2f(loc, x, y)
 	return true
 }
 
 _shader_set_vec3 :: proc(self: ^Shader, name: cstring, x, y, z: f32) -> bool {
 	loc, ok := shader_get_location(self, name)
-	if !ok {return false}
+	if !ok do return false
 	gl.Uniform3f(loc, x, y, z)
 	return true
 }
 
 _shader_set_vec4 :: proc(self: ^Shader, name: cstring, x, y, z, w: f32) -> bool {
 	loc, ok := shader_get_location(self, name)
-	if !ok {return false}
+	if !ok do return false
 	gl.Uniform4f(loc, x, y, z, w)
 	return true
 }
 
 _shader_set_vec2v :: proc(self: ^Shader, name: cstring, v: ^[2]f32) -> bool {
 	loc, ok := shader_get_location(self, name)
-	if !ok {return false}
+	if !ok do return false
 	gl.Uniform2fv(loc, 1, cast([^]f32)v)
 	return true
 }
 
 _shader_set_vec3v :: proc(self: ^Shader, name: cstring, v: ^[3]f32) -> bool {
 	loc, ok := shader_get_location(self, name)
-	if !ok {return false}
+	if !ok do return false
 	gl.Uniform3fv(loc, 1, cast([^]f32)v)
 	return true
 }
 
 _shader_set_vec4v :: proc(self: ^Shader, name: cstring, v: ^[4]f32) -> bool {
 	loc, ok := shader_get_location(self, name)
-	if !ok {return false}
+	if !ok do return false
 	gl.Uniform4fv(loc, 1, cast([^]f32)v)
 	return true
 }
 
 _shader_set_mat3 :: proc(self: ^Shader, name: cstring, v: ^matrix[3, 3]f32) -> bool {
 	loc, ok := shader_get_location(self, name)
-	if !ok {return false}
+	if !ok do return false
 	gl.UniformMatrix3fv(loc, 1, false, cast([^]f32)v)
 	return true
 }
 
 _shader_set_mat4 :: proc(self: ^Shader, name: cstring, v: ^matrix[4, 4]f32) -> bool {
 	loc, ok := shader_get_location(self, name)
-	if !ok {return false}
+	if !ok do return false
 	gl.UniformMatrix4fv(loc, 1, false, cast([^]f32)v)
 	return true
 }
