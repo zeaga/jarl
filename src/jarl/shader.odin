@@ -70,7 +70,7 @@ shader_create :: proc(shader: ^Shader) {
 
 shader_set_uniforms :: proc(app: ^App, shader: ^Shader) {
 	rot_mtx := camera_get_rotation_matrix(&app.camera)
-	// shader_set_uniform(&app.shader, "debug_mode", DEBUG_MODE)
+	shader_set_uniform(&app.shader, "debug_mode", DEBUG_MODE)
 	shader_set_uniform(&app.shader, "cam_position", &app.camera.position)
 	shader_set_uniform(&app.shader, "cam_rotation", &rot_mtx)
 	shader_set_uniform(&app.shader, "cam_tan_half_fov", camera_get_tan_half_fov(&app.camera))
