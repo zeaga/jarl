@@ -1,9 +1,32 @@
 package jarl
 
 import "core:fmt"
+import "core:log"
 import "core:math"
+import "core:os"
 
-// import "osdialog"
+save_scene :: proc(scene: ^Scene) {
+	data := scene_to_json(scene, context.temp_allocator)
+	if data == "" do return
+
+	err := os.write_entire_file("scene.json", data)
+	if err != nil {
+		log.error("Failed to save scene to file")
+	} else {
+		log.info("Scene saved to scene.json")
+	}
+}
+
+load_scene :: proc(scene: ^Scene) {
+	data, err := os.read_entire_file("scene.json", context.temp_allocator)
+	if err != nil {
+		log.error("Failed to load scene from file")
+		return
+	}
+
+	scene_flush(scene)
+	scene_from_json(scene, cast(string)data)
+}
 
 import im_glfw "shared:imgui/imgui_impl_glfw"
 import im_gl "shared:imgui/imgui_impl_opengl3"
@@ -68,14 +91,14 @@ imgui_ui :: proc(app: ^App, imstate: ^ImState) {
 				scene_load_default(&app.scene)
 			}
 			if (im.MenuItem("Load Scene...", "Ctrl+O")) {
-				// TODO
+				load_scene(&app.scene)
 			}
 			im.Separator()
 			if (im.MenuItem("Save", "Ctrl+S")) {
-				// TODO
+				save_scene(&app.scene)
 			}
 			if (im.MenuItem("Save As...", "Ctrl+Shift+S")) {
-				// TODO
+				save_scene(&app.scene)
 			}
 			im.Separator()
 			if (im.MenuItem("Exit", "Esc")) {

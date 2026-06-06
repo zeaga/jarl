@@ -63,39 +63,7 @@ scene_create :: proc(scene: ^Scene) {
 
 scene_load_default :: proc(scene: ^Scene) {
 	scene_flush(scene)
-
-	// Floor
 	scene_add_box(scene, {0, -1.1, 0}, 40, 0.2, 40, {0.25, 0.25, 0.28, 1})
-
-	// --- 1. The impossible hallway: a 5-unit corridor that never ends ---
-	// Two portals face each other; walk forward and you loop forever.
-	scene_add_sphere(scene, {0, 0, -6}, 0.4, {1.0, 0.4, 0.2, 1})
-	scene_add_sphere(scene, {0, 0, -8}, 0.3, {1.0, 0.7, 0.2, 1})
-	scene_add_portal(scene, {0, 0, -10}, {0, 0, 0},   .Rectangle, 1, 1.5, 2.0)
-	scene_add_portal(scene, {0, 0,  -5}, {0, 180, 0}, .Rectangle, 0, 1.5, 2.0)
-
-	// --- 2. The 90° turn: walk straight, the world pivots a quarter turn ---
-	// Perpendicular portals (yaw 0 -> yaw 90), no physical corner.
-	scene_add_sphere(scene, {-12, 0, 0},  0.5, {0.9, 0.2, 0.5, 1})
-	scene_add_sphere(scene, {-12, 0, -4}, 0.4, {0.6, 0.2, 1.0, 1})
-	scene_add_portal(scene, {-12, 0, 2},  {0, 0, 0},  .Rectangle, 3, 1.2, 2.0)
-	scene_add_portal(scene, {-12, 0, -8}, {0, 90, 0}, .Rectangle, 2, 1.2, 2.0)
-
-	// --- 3. The teleport across the map: two distant rooms stitched together ---
-	// Step through the left-room portal, emerge in the far right room.
-	scene_add_sphere(scene, {-3, 0,  0}, 0.5, {1.0, 0.3, 0.2, 1})
-	scene_add_sphere(scene, {-4, 0, -2}, 0.4, {1.0, 0.6, 0.1, 1})
-	scene_add_sphere(scene,  {3, 0,  0}, 0.5, {0.2, 0.5, 1.0, 1})
-	scene_add_sphere(scene,  {4, 0, -2}, 0.4, {0.1, 0.8, 0.7, 1})
-	scene_add_portal(scene, {-2, 0, 8}, {0, 45, 0},   .Rectangle, 5, 1.0, 2.0)
-	scene_add_portal(scene,  {3, 0, 8}, {0, -135, 0}, .Rectangle, 4, 1.0, 2.0)
-
-	// --- 4. The acute wedge: portals at a sharp relative angle ---
-	// Crossing rotates your view by an odd amount — disorienting but seamless.
-	scene_add_sphere(scene, {12, 0, 0}, 0.5, {0.3, 0.5, 1.0, 1})
-	scene_add_sphere(scene, {12, 0, 4}, 0.4, {0.5, 0.2, 1.0, 1})
-	scene_add_portal(scene, {12, 0, -2}, {0, 30, 0},  .Rectangle, 7, 1.2, 2.0)
-	scene_add_portal(scene, {12, 0,  6}, {0, 200, 0}, .Rectangle, 6, 1.2, 2.0)
 }
 
 scene_add_sphere :: proc(scene: ^Scene, position: [3]f32, radius: f32, color: [4]f32) {
