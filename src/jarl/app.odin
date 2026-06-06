@@ -2,7 +2,7 @@ package jarl
 
 import "base:runtime"
 import "core:log"
-import "vendor:glfw"
+import sdl "vendor:sdl3"
 import gl "vendor:OpenGL"
 import im "shared:imgui"
 
@@ -39,35 +39,31 @@ app_run :: proc(descriptor: AppDescriptor) -> (ok: bool) {
 	log_level := descriptor.log_level != nil ? descriptor.log_level : log.Level.Info
 	context.logger = log.create_console_logger(log_level)
 	defer log.destroy_console_logger(context.logger)
+	log.info("running")
 	
 	app.ctx = context
 
-	glfw.WindowHint(glfw.RESIZABLE, glfw.TRUE)
-	glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, GL_MAJOR_VERSION)
-	glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, GL_MINOR_VERSION)
-	glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
+	sdl.GL_SetAttribute(.CONTEXT_MAJOR_VERSION, GL_MAJOR_VERSION)
+	sdl.GL_SetAttribute(.CONTEXT_MINOR_VERSION, GL_MINOR_VERSION)
+	sdl.GL_SetAttribute(.CONTEXT_PROFILE_MASK, i32(sdl.GL_CONTEXT_PROFILE_CORE))
 
-	if !glfw.Init() {
-		log.fatal("Failed to initialize GLFW")
+	if !sdl.Init({.VIDEO}) {
+		log.fatal("Failed to initialize SDL:", sdl.GetError())
 		runtime.exit(-1)
 	}
-	defer glfw.Terminate()
+	defer sdl.Quit()
 
 	window_create(&app.window, descriptor.window_width, descriptor.window_height, descriptor.window_title)
 	defer window_destroy(&app.window)
-	glfw.SetWindowUserPointer(app.window.handle, &app)
 
 	app.input.window_size = {descriptor.window_width, descriptor.window_height}
-	app.input.mouse_pos = {glfw.GetCursorPos(app.window.handle)}
+	{
+		x, y: f32
+		_ = sdl.GetMouseState(&x, &y)
+		app.input.mouse_pos = {f64(x), f64(y)}
+	}
 
-	glfw.SetCursorPosCallback(app.window.handle, _app_mouse_pos_cbfn)
-	glfw.SetFramebufferSizeCallback(app.window.handle, _app_size_cbfn)
-	glfw.SetKeyCallback(app.window.handle, _app_key_cbfn)
-	glfw.SetMouseButtonCallback(app.window.handle, _app_mouse_btn_cbfn)
-	// glfw.SetWindowRefreshCallback(app.window.handle, _app_refresh_cbfn)
-	glfw.SetScrollCallback(app.window.handle, _app_scroll_cbfn)
-
-	gl.load_up_to(GL_MAJOR_VERSION, GL_MINOR_VERSION, glfw.gl_set_proc_address)
+	gl.load_up_to(GL_MAJOR_VERSION, GL_MINOR_VERSION, sdl.gl_set_proc_address)
 
 	shader_create(&app.shader)
 	defer shader_destroy(&app.shader)
@@ -107,7 +103,38 @@ app_update :: proc(app: ^App) {
 	timing_update(&app.timing)
 
 	input_update(&app.input)
-	glfw.PollEvents()
+
+	e: sdl.Event
+	for sdl.PollEvent(&e) {
+		imgui_process_event(&e)
+		#partial switch e.type {
+		case .QUIT, .WINDOW_CLOSE_REQUESTED:
+			app.window.should_close = true
+		case .KEY_DOWN, .KEY_UP:
+			sc := i32(e.key.scancode)
+			if sc >= 0 && sc < i32(Key.Count) {
+				app.input.keys_current[sc] = e.type == .KEY_DOWN
+			}
+		case .MOUSE_MOTION:
+			app.input.mouse_delta[0] += f64(e.motion.xrel)
+			app.input.mouse_delta[1] += f64(e.motion.yrel)
+			app.input.mouse_pos = {f64(e.motion.x), f64(e.motion.y)}
+		case .MOUSE_BUTTON_DOWN, .MOUSE_BUTTON_UP:
+			btn := i32(e.button.button)
+			if btn >= 0 && btn < i32(MouseButton.Count) {
+				app.input.mbtns_current[btn] = e.type == .MOUSE_BUTTON_DOWN
+			}
+		case .MOUSE_WHEEL:
+			app.input.scroll_delta[0] += f64(e.wheel.x)
+			app.input.scroll_delta[1] += f64(e.wheel.y)
+		case .WINDOW_PIXEL_SIZE_CHANGED:
+			w := e.window.data1
+			h := e.window.data2
+			app.input.window_size = {w, h}
+			app.input.window_resized = true
+			gl.Viewport(0, 0, w, h)
+		}
+	}
 
 	imgui_update(app, &app.imstate)
 
@@ -158,42 +185,4 @@ app_render :: proc(app: ^App) {
 	// scene_flush(&app.scene)
 
 	window_swap_buffers(&app.window)
-}
-
-@(private="file") _app_mouse_pos_cbfn :: proc "c" (window: glfw.WindowHandle, xpos, ypos: f64) {
-	app := (^App)(glfw.GetWindowUserPointer(window))
-	app.input.mouse_delta = {xpos - app.input.mouse_pos[0], ypos - app.input.mouse_pos[1]}
-	app.input.mouse_pos = {xpos, ypos}
-}
-
-@(private="file") _app_size_cbfn :: proc "c" (window: glfw.WindowHandle, width, height: i32) {
-	app := (^App)(glfw.GetWindowUserPointer(window))
-	app.input.window_size = {width, height}
-	app.input.window_resized = true
-	gl.Viewport(0, 0, width, height)
-}
-
-@(private="file") _app_key_cbfn :: proc "c" (window: glfw.WindowHandle, key, scancode, action, mods: i32) {
-	app := (^App)(glfw.GetWindowUserPointer(window))
-	if key >= 0 && key <= glfw.KEY_LAST {
-		app.input.keys_current[key] = action != glfw.RELEASE
-	}
-}
-
-@(private="file") _app_mouse_btn_cbfn :: proc "c" (window: glfw.WindowHandle, button, action, mods: i32) {
-	app := (^App)(glfw.GetWindowUserPointer(window))
-	if button >= 0 && button <= glfw.MOUSE_BUTTON_LAST {
-		app.input.mbtns_current[button] = action != glfw.RELEASE
-	}
-}
-
-@(private="file") _app_refresh_cbfn :: proc "c" (window: glfw.WindowHandle) {
-	app := (^App)(glfw.GetWindowUserPointer(window))
-	context = app.ctx
-	app_render(app)
-}
-
-@(private="file") _app_scroll_cbfn :: proc "c" (window: glfw.WindowHandle, xoffset, yoffset: f64) {
-	app := (^App)(glfw.GetWindowUserPointer(window))
-	app.input.scroll_delta = {xoffset, yoffset}
 }

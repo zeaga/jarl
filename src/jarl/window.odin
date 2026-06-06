@@ -2,61 +2,70 @@ package jarl
 
 import "base:runtime"
 import "core:log"
-import "vendor:glfw"
+import sdl "vendor:sdl3"
 
 Window :: struct {
-	handle: glfw.WindowHandle,
+	handle:      ^sdl.Window,
+	gl_ctx:      sdl.GLContext,
+	mouse_mode:  MouseMode,
+	should_close: bool,
 }
 
 window_create :: proc(window: ^Window, width: i32, height: i32, title: cstring) {
-	handle := glfw.CreateWindow(width, height, title, nil, nil)
+	handle := sdl.CreateWindow(title, width, height, {.OPENGL, .RESIZABLE})
 	if handle == nil {
-		log.fatal("Failed to create window")
+		log.fatal("Failed to create window:", sdl.GetError())
 		runtime.exit(1)
 	}
 
-	glfw.MakeContextCurrent(handle)
-	glfw.SetInputMode(handle, glfw.RAW_MOUSE_MOTION, 1)
-	glfw.SwapInterval(1)
+	gl_ctx := sdl.GL_CreateContext(handle)
+	if gl_ctx == nil {
+		log.fatal("Failed to create OpenGL context:", sdl.GetError())
+		runtime.exit(1)
+	}
+
+	sdl.GL_MakeCurrent(handle, gl_ctx)
+	sdl.GL_SetSwapInterval(1)
+	_ = sdl.SetWindowRelativeMouseMode(handle, false)
 
 	window.handle = handle
+	window.gl_ctx = gl_ctx
+	window.mouse_mode = .Normal
 }
 
 window_should_close :: proc(window: ^Window) -> bool {
-	return bool(glfw.WindowShouldClose(window.handle))
+	return window.should_close
 }
 
 window_swap_buffers :: proc(window: ^Window) {
-	glfw.SwapBuffers(window.handle)
+	sdl.GL_SwapWindow(window.handle)
 }
 
 window_destroy :: proc(window: ^Window) {
-	glfw.DestroyWindow(window.handle)
+	sdl.GL_DestroyContext(window.gl_ctx)
+	sdl.DestroyWindow(window.handle)
 }
 
 window_set_mouse_mode :: proc(window: ^Window, mode: MouseMode) {
 	switch mode {
 	case .Normal:
-		glfw.SetInputMode(window.handle, glfw.CURSOR, glfw.CURSOR_NORMAL)
+		_ = sdl.SetWindowRelativeMouseMode(window.handle, false)
+		_ = sdl.SetWindowMouseGrab(window.handle, false)
+		_ = sdl.ShowCursor()
 	case .Hidden:
-		glfw.SetInputMode(window.handle, glfw.CURSOR, glfw.CURSOR_HIDDEN)
+		_ = sdl.SetWindowRelativeMouseMode(window.handle, false)
+		_ = sdl.SetWindowMouseGrab(window.handle, false)
+		_ = sdl.HideCursor()
 	case .Captured:
-		glfw.SetInputMode(window.handle, glfw.CURSOR, glfw.CURSOR_CAPTURED)
+		_ = sdl.SetWindowRelativeMouseMode(window.handle, false)
+		_ = sdl.SetWindowMouseGrab(window.handle, true)
+		_ = sdl.HideCursor()
 	case .Disabled:
-		glfw.SetInputMode(window.handle, glfw.CURSOR, glfw.CURSOR_DISABLED)
+		_ = sdl.SetWindowRelativeMouseMode(window.handle, true)
 	}
+	window.mouse_mode = mode
 }
 
 window_get_mouse_mode :: proc(window: ^Window) -> MouseMode {
-	switch glfw.GetInputMode(window.handle, glfw.CURSOR) {
-	case glfw.CURSOR_NORMAL:
-		return .Normal
-	case glfw.CURSOR_HIDDEN:
-		return .Hidden
-	case glfw.CURSOR_CAPTURED:
-		return .Captured
-	case glfw.CURSOR_DISABLED:
-		return .Disabled
-	}
-	return .Normal
+	return window.mouse_mode
 }

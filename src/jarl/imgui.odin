@@ -28,9 +28,10 @@ load_scene :: proc(scene: ^Scene) {
 	scene_from_json(scene, cast(string)data)
 }
 
-import im_glfw "shared:imgui/imgui_impl_glfw"
+import im_sdl "shared:imgui/imgui_impl_sdl3"
 import im_gl "shared:imgui/imgui_impl_opengl3"
 import im "shared:imgui"
+import sdl "vendor:sdl3"
 
 ImState :: struct {
 	// show_stats: bool,
@@ -48,7 +49,7 @@ imgui_init :: proc(app: ^App, imstate: ^ImState) {
 	io.ConfigDragClickToInputText = true
 	io.ConfigFlags += {.NavEnableKeyboard}
 	im.StyleColorsDark()
-	im_glfw.InitForOpenGL(app.window.handle, true)
+	im_sdl.InitForOpenGL(app.window.handle, rawptr(app.window.gl_ctx))
 	im_gl.Init(GLSL_VERSION)
 	io.IniFilename = nil
 	imstate.scene_path = ""
@@ -61,7 +62,7 @@ imgui_update :: proc(app: ^App, imstate: ^ImState) {
 		return
 	}
 	im_gl.NewFrame()
-	im_glfw.NewFrame()
+	im_sdl.NewFrame()
 	im.NewFrame()
 	io := im.GetIO()
 	if window_get_mouse_mode(&app.window) != .Normal {
@@ -278,11 +279,17 @@ imgui_render :: proc() {
 	im_gl.RenderDrawData(im.GetDrawData())
 }
 
+imgui_process_event :: proc(e: ^sdl.Event) {
+	when IMGUI_ENABLED {
+		im_sdl.ProcessEvent(e)
+	}
+}
+
 imgui_destroy :: proc() {
 	if !IMGUI_ENABLED {
 		return
 	}
 	im_gl.Shutdown()
-	im_glfw.Shutdown()
+	im_sdl.Shutdown()
 	im.DestroyContext()
 }
