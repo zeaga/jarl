@@ -1,7 +1,5 @@
 package jarl
 
-import "vendor:glfw"
-
 Input :: struct {
 	keys_current: [Key.Count]bool,
 	keys_previous: [Key.Count]bool,

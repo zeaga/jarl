@@ -36,27 +36,27 @@ window_destroy :: proc(window: ^Window) {
 
 window_set_mouse_mode :: proc(window: ^Window, mode: MouseMode) {
 	switch mode {
-		case .Normal:
-			glfw.SetInputMode(window.handle, glfw.CURSOR, glfw.CURSOR_NORMAL)
-		case .Hidden:
-			glfw.SetInputMode(window.handle, glfw.CURSOR, glfw.CURSOR_HIDDEN)
-		case .Captured:
-			glfw.SetInputMode(window.handle, glfw.CURSOR, glfw.CURSOR_CAPTURED)
-		case .Disabled:
-			glfw.SetInputMode(window.handle, glfw.CURSOR, glfw.CURSOR_DISABLED)
+	case .Normal:
+		glfw.SetInputMode(window.handle, glfw.CURSOR, glfw.CURSOR_NORMAL)
+	case .Hidden:
+		glfw.SetInputMode(window.handle, glfw.CURSOR, glfw.CURSOR_HIDDEN)
+	case .Captured:
+		glfw.SetInputMode(window.handle, glfw.CURSOR, glfw.CURSOR_CAPTURED)
+	case .Disabled:
+		glfw.SetInputMode(window.handle, glfw.CURSOR, glfw.CURSOR_DISABLED)
 	}
 }
 
 window_get_mouse_mode :: proc(window: ^Window) -> MouseMode {
 	switch glfw.GetInputMode(window.handle, glfw.CURSOR) {
-		case glfw.CURSOR_NORMAL:
-			return .Normal
-		case glfw.CURSOR_HIDDEN:
-			return .Hidden
-		case glfw.CURSOR_CAPTURED:
-			return .Captured
-		case glfw.CURSOR_DISABLED:
-			return .Disabled
+	case glfw.CURSOR_NORMAL:
+		return .Normal
+	case glfw.CURSOR_HIDDEN:
+		return .Hidden
+	case glfw.CURSOR_CAPTURED:
+		return .Captured
+	case glfw.CURSOR_DISABLED:
+		return .Disabled
 	}
 	return .Normal
 }

@@ -163,7 +163,7 @@ mat3 portal_rotation(vec3 nA, vec3 tA, vec3 nB, vec3 tB) {
 	vec3 bA = cross(nA, tA);
 	vec3 bB = cross(nB, tB);
 	mat3 MA = mat3(-nA, tA, bA);
-	mat3 MB = mat3( nB, tB, bB);
+	mat3 MB = mat3( nB,-tB, bB);
 	return MB * transpose(MA);
 }
 

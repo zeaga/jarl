@@ -63,10 +63,10 @@ scene_create :: proc(scene: ^Scene) {
 	scene_add_sphere(scene,  {4, 0, -2}, 0.4, {0.1, 0.8, 0.7, 1})
 	scene_add_sphere(scene,  {2, 0,  2}, 0.3, {0.5, 0.2, 1.0, 1})
 
-	scene_add_portal(scene, {-2, 0, 2}, {0, 0, 0}, .Rectangle, 1, 1.0, 2.0)
-	scene_add_portal(scene,  {2, 0, 2}, {0, 180, 0}, .Rectangle, 0, 1.0, 2.0)
-	scene_add_portal(scene, {-2, 0, 2}, {0, 180, 0}, .Rectangle, 3, 1.0, 2.0)
-	scene_add_portal(scene,  {2, 0, 2}, {0, 0, 0}, .Rectangle, 2, 1.0, 2.0)
+	scene_add_portal(scene, {-2, 0, 3}, {0, 0, 0}, .Rectangle, 1, 1.0, 2.0)
+	scene_add_portal(scene,  {2, 0, 3}, {0, 180, 0}, .Rectangle, 0, 1.0, 2.0)
+	scene_add_portal(scene, {-2, 0, 3}, {0, 180, 0}, .Rectangle, 3, 1.0, 2.0)
+	scene_add_portal(scene,  {2, 0, 3}, {0, 0, 0}, .Rectangle, 2, 1.0, 2.0)
 }
 
 scene_add_sphere :: proc(scene: ^Scene, position: [3]f32, radius: f32, color: [4]f32) {

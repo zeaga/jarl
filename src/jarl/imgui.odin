@@ -80,7 +80,7 @@ imgui_ui :: proc(app: ^App, imstate: ^ImState) {
 		im.SeparatorText("Timing")
 		im.Text("%.1f seconds", app.timing.run_time)
 		im.Text("%d frames", app.timing.frame_count)
-		im.Text("%.3f ms/frame", app.timing.delta_time)
+		im.Text("%.3f ms/frame", timing_get_spf(&app.timing) * 1000)
 		im.Text("%.1f frames/s", timing_get_fps(&app.timing))
 
 		im.PushID("Camera")
@@ -135,7 +135,7 @@ imgui_ui_scene_primitives :: proc(app: ^App, imstate: ^ImState) {
 
 		im.InputFloat3("Position", &position)
 
-		switch cast(PrimitiveType)primitive.type {
+		switch primitive.type {
 		case .Sphere:
 			im.SliderFloat("Radius", &primitive.param0, 0.1, 10.0, "%.2f", {.Logarithmic})
 		case .Box:
@@ -185,7 +185,6 @@ imgui_ui_scene_portals :: proc(app: ^App, imstate: ^ImState) {
 		rotation: [3]f32 = {portal.rotation[0], portal.rotation[1], portal.rotation[2]}
 		width: f32 = portal.half_width * 2
 		height: f32 = portal.half_height * 2
-		partner: i32 = portal.partner
 		im.InputFloat3("Position", &position)
 		im.InputFloat3("Rotation", &rotation)
 		im.SliderFloat("Width", &width, 0.1, 10.0, "%.2f", {.Logarithmic})

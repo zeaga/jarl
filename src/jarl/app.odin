@@ -2,7 +2,6 @@ package jarl
 
 import "base:runtime"
 import "core:log"
-import "core:math"
 import "vendor:glfw"
 import gl "vendor:OpenGL"
 import im "shared:imgui"
@@ -133,14 +132,12 @@ app_update :: proc(app: ^App) {
 	}
 
 	if window_get_mouse_mode(&app.window) != .Normal {
-		cam_update(&app.camera, app)
+		camera_update(&app.camera, app)
 	}
 	// UPDATE HERE
 }
 
 app_render :: proc(app: ^App) {
-	dt := app.timing.delta_time
-
 	gl.ClearColor(0.0, 0.0, 0.0, 1.0)
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 
@@ -148,11 +145,6 @@ app_render :: proc(app: ^App) {
 	gl.BindVertexArray(app.vao)
 
 	shader_set_uniforms(app, &app.shader)
-
-	t := math.sin(app.timing.run_time)
-
-	// scene_add_sphere(&app.scene, {0, 0, 0}, t / 2 + 1.5, {max(0,t), 1.0, max(0,-t), 1})
-	// scene_add_box(&app.scene, {4, t, 0}, 1.0, t + 2.0, 1.0, {0.1, 0.3, 1.0, 1})
 
 	scene_upload(&app.scene)
 	shader_set_uniform(&app.shader, "primitive_count", cast(i32)len(app.scene.primitives))
