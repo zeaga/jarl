@@ -1,5 +1,4 @@
 const float EPSILON = 0.0001;
-const float PORTAL_THICKNESS = 0.05;
 
 in vec2 ndc;
 out vec4 fragColor;
@@ -14,8 +13,7 @@ uniform vec4 clear_color;
 uniform int ray_max_steps;
 uniform float ray_max_dist;
 uniform int ray_max_teleports;
-
-uniform bool debug_mode;
+uniform float portal_thickness;
 
 struct Primitive {
 	vec4 position;
@@ -47,6 +45,13 @@ struct MapResult {
 	float dist;
 	int id;
 	vec3 pos;
+};
+
+// Pre-computed portal data to avoid redundant euler_to_mat3 calls per step
+struct PortalCache {
+	vec3 normal;
+	vec3 tangent;
+	vec3 bitangent;
 };
 
 vec3 calc_ray_dir(vec2 ndc) {
@@ -85,13 +90,15 @@ MapResult map(vec3 p) {
 	return result;
 }
 
+// Tetrahedron technique: 4 map() calls instead of 6
 vec3 calc_normal(vec3 p) {
-	vec2 e = vec2(EPSILON, 0.0);
-	return normalize(vec3(
-		map(p + e.xyy).dist - map(p - e.xyy).dist,
-		map(p + e.yxy).dist - map(p - e.yxy).dist,
-		map(p + e.yyx).dist - map(p - e.yyx).dist
-	));
+	vec2 e = vec2(EPSILON, -EPSILON);
+	return normalize(
+		e.xyy * map(p + e.xyy).dist +
+		e.yyx * map(p + e.yyx).dist +
+		e.yxy * map(p + e.yxy).dist +
+		e.xxx * map(p + e.xxx).dist
+	);
 }
 
 mat3 euler_to_mat3(vec3 e) {
@@ -104,12 +111,11 @@ mat3 euler_to_mat3(vec3 e) {
 	return Ry * Rx * Rz;
 }
 
-float ray_portal_outline(vec3 ray_origin, vec3 ray_direction, int j) {
+// Uses pre-cached normal/tangent/bitangent to avoid redundant euler_to_mat3 calls
+float ray_portal_outline_cached(vec3 ray_origin, vec3 ray_direction, int j, PortalCache cache) {
 	vec3 center = portals[j].position.xyz;
-	mat3 rot = euler_to_mat3(portals[j].rotation.xyz);
-	vec3 normal = rot * vec3(0.0, 0.0, 1.0);
+	vec3 normal = cache.normal;
 	if (dot(normal, ray_direction) >= 0.0) return -1.0; // back face
-	vec3 tangent = rot * vec3(1.0, 0.0, 0.0);
 	float hw = portals[j].half_width;
 	float hh = portals[j].half_height;
 
@@ -118,39 +124,36 @@ float ray_portal_outline(vec3 ray_origin, vec3 ray_direction, int j) {
 	float t = dot(center - ray_origin, normal) / denom;
 	if (t < EPSILON * 0.1) return -1.0;
 
-	vec3 bitan = cross(normal, tangent);
-	float u = dot((ray_origin + ray_direction * t) - center, tangent);
-	float v = dot((ray_origin + ray_direction * t) - center, bitan);
+	vec3 hit = (ray_origin + ray_direction * t) - center;
+	float u = dot(hit, cache.tangent);
+	float v = dot(hit, cache.bitangent);
 
 	if (portals[j].type == 0) {
 		float outer = (u*u)/(hw*hw) + (v*v)/(hh*hh);
-		float ihw = hw - PORTAL_THICKNESS, ihh = hh - PORTAL_THICKNESS;
+		float ihw = hw - portal_thickness, ihh = hh - portal_thickness;
 		float inner = (u*u)/(ihw*ihw) + (v*v)/(ihh*ihh);
 		return (outer > 1.0 || inner < 1.0) ? t : -1.0;
 	} else {
 		bool inside = abs(u) <= hw && abs(v) <= hh;
-		bool inner = abs(u) <= (hw - PORTAL_THICKNESS) && abs(v) <= (hh - PORTAL_THICKNESS);
+		bool inner = abs(u) <= (hw - portal_thickness) && abs(v) <= (hh - portal_thickness);
 		return (inside && !inner) ? t : -1.0;
 	}
 }
 
-float ray_portal_intersect(vec3 ray_origin, vec3 ray_direction, int j) {
+// Uses pre-cached normal/tangent/bitangent to avoid redundant euler_to_mat3 calls
+float ray_portal_intersect_cached(vec3 ray_origin, vec3 ray_direction, int j, PortalCache cache) {
 	vec3 center = portals[j].position.xyz;
-	mat3 rot = euler_to_mat3(portals[j].rotation.xyz);
-	vec3 normal = rot * vec3(0.0, 0.0, 1.0);
-	vec3 tangent = rot * vec3(1.0, 0.0, 0.0);
 	float hw = portals[j].half_width;
 	float hh = portals[j].half_height;
 
-	float denom = dot(normal, ray_direction);
+	float denom = dot(cache.normal, ray_direction);
 	if (abs(denom) < EPSILON) return -1.0;
-	float t = dot(center - ray_origin, normal) / denom;
+	float t = dot(center - ray_origin, cache.normal) / denom;
 	if (t < EPSILON) return -1.0;
 
 	vec3 hit = (ray_origin + ray_direction * t) - center;
-	vec3 bitan = cross(normal, tangent);
-	float u = dot(hit, tangent);
-	float v = dot(hit, bitan);
+	float u = dot(hit, cache.tangent);
+	float v = dot(hit, cache.bitangent);
 
 	if (portals[j].type == 0) {
 		return ((u * u) / (hw * hw) + (v * v) / (hh * hh)) <= 1.0 ? t : -1.0;
@@ -167,7 +170,7 @@ mat3 portal_rotation(vec3 nA, vec3 tA, vec3 nB, vec3 tB) {
 	return MB * transpose(MA);
 }
 
-MapResult raymarch(vec3 ray_pos, vec3 ray_dir) {
+MapResult raymarch(vec3 ray_pos, vec3 ray_dir, PortalCache cache[8]) {
 	float total_dist = 0.0;
 	int teleports = 0;
 
@@ -179,38 +182,43 @@ MapResult raymarch(vec3 ray_pos, vec3 ray_dir) {
 		float step_dist = r.dist;
 		bool teleported = false;
 
-		// Check portal outlines from the current (possibly teleported) ray position
-		if (debug_mode) {
-			for (int j = 0; j < portal_count; j++) {
-				float ot = ray_portal_outline(ray_pos, ray_dir, j);
-				if (ot > 0.0 && ot < step_dist) {
-					return MapResult(total_dist + ot, -2, ray_pos + ray_dir * ot);
-				}
+		for (int j = 0; j < portal_count; j++) {
+			// Coarse portal cull before detailed intersection
+			float coarse = length(ray_pos - portals[j].position.xyz)
+				- max(portals[j].half_width, portals[j].half_height) * 2.0;
+			if (coarse > r.dist) continue;
+
+			float ot = ray_portal_outline_cached(ray_pos, ray_dir, j, cache[j]);
+			if (ot > 0.0 && ot < step_dist) {
+				return MapResult(total_dist + ot, -2, ray_pos + ray_dir * ot);
 			}
 		}
 
 		if (teleports < ray_max_teleports) {
 			for (int j = 0; j < portal_count; j++) {
-				mat3 aRot = euler_to_mat3(portals[j].rotation.xyz);
-				vec3 aNormal = aRot * vec3(0.0, 0.0, 1.0);
-				if (dot(aNormal, ray_dir) >= 0.0) continue; // back face
-				vec3 aTangent = aRot * vec3(1.0, 0.0, 0.0);
+				if (dot(cache[j].normal, ray_dir) >= 0.0) continue; // back face
 
-				float pt = ray_portal_intersect(ray_pos, ray_dir, j);
+				// Coarse portal cull before detailed intersection
+				float coarse = length(ray_pos - portals[j].position.xyz)
+					- max(portals[j].half_width, portals[j].half_height) * 2.0;
+				if (coarse > r.dist) continue;
+
+				float pt = ray_portal_intersect_cached(ray_pos, ray_dir, j, cache[j]);
 				if (pt > 0.0 && pt < step_dist) {
 					int partner = portals[j].partner_index;
 					if (partner < 0 || partner >= portal_count || partner == j) continue;
-					mat3 bRot = euler_to_mat3(portals[partner].rotation.xyz);
-					vec3 bNormal = bRot * vec3(0.0, 0.0, 1.0);
-					vec3 bTangent = bRot * vec3(1.0, 0.0, 0.0);
+
 					mat3 rot = portal_rotation(
-						aNormal, aTangent,
-						bNormal, bTangent
+						cache[j].normal, cache[j].tangent,
+						cache[partner].normal, cache[partner].tangent
 					);
 
 					ray_pos = portals[partner].position.xyz
 							+ rot * ((ray_pos + ray_dir * pt) - portals[j].position.xyz);
 					ray_dir = rot * ray_dir;
+					// Nudge past the partner portal plane to avoid self-intersection
+					// on the next step due to floating point imprecision.
+					ray_pos += ray_dir * EPSILON * 10.0;
 					total_dist += pt;
 					teleports++;
 					teleported = true;
@@ -232,7 +240,17 @@ void main() {
 	vec3 ray_dir = calc_ray_dir(ndc);
 	vec3 color = clear_color.rgb;
 
-	MapResult result = raymarch(cam_position, ray_dir);
+	// Pre-compute all portal matrices once per fragment rather than
+	// redundantly inside every raymarch step and portal function call.
+	PortalCache cache[8];
+	for (int j = 0; j < portal_count; j++) {
+		mat3 rot = euler_to_mat3(portals[j].rotation.xyz);
+		cache[j].normal    = rot * vec3(0.0, 0.0, 1.0);
+		cache[j].tangent   = rot * vec3(1.0, 0.0, 0.0);
+		cache[j].bitangent = cross(cache[j].normal, cache[j].tangent);
+	}
+
+	MapResult result = raymarch(cam_position, ray_dir, cache);
 
 	if (result.id == -2) {
 		color = vec3(1.0, 0.8, 0.0);

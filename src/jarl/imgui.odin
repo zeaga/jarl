@@ -21,10 +21,7 @@ save_scene_cbfn :: proc "c" (userdata: rawptr, filelist: [^]cstring, filter: i32
 }
 
 load_scene_cbfn :: proc "c" (userdata: rawptr, filelist: [^]cstring, filter: i32) {
-
 	context = runtime.default_context()
-
-	log.info("test")
 	if filelist == nil || filelist[0] == nil {
 		return
 	}
@@ -103,6 +100,11 @@ imgui_update :: proc(app: ^App, imstate: ^ImState) {
 	imgui_ui(app, imstate)
 }
 
+@(private="file") _dialog_filters := [2]sdl3.DialogFileFilter{
+	{"JSON scene files", "*.json"},
+	{"All files", "*.*"},
+}
+
 imgui_ui :: proc(app: ^App, imstate: ^ImState) {
 	if !app.debug_mode {
 		return
@@ -111,10 +113,6 @@ imgui_ui :: proc(app: ^App, imstate: ^ImState) {
 	menuh: f32 = 0
 	if (im.BeginMainMenuBar()) {
 		if (im.BeginMenu("File")) {
-			filters := []sdl3.DialogFileFilter {
-				{"JSON scene files", "*.json"},
-				{"All files", "*.*"},
-			}
 			if (im.MenuItem("New Scene", "Ctrl+N")) {
 				scene_flush(&app.scene)
 			}
@@ -123,20 +121,18 @@ imgui_ui :: proc(app: ^App, imstate: ^ImState) {
 				scene_load_default(&app.scene)
 			}
 			if (im.MenuItem("Load Scene...", "Ctrl+O")) {
-
-	log.info("test2")
-				sdl3.ShowOpenFileDialog(load_scene_cbfn, rawptr(&app.scene), app.window.handle, raw_data(filters), 2, ".", false)
+				sdl3.ShowOpenFileDialog(load_scene_cbfn, rawptr(&app.scene), app.window.handle, &_dialog_filters[0], 2, ".", false)
 			}
 			im.Separator()
 			if (im.MenuItem("Save", "Ctrl+S")) {
 				if (imstate.scene_path == "") {
-					sdl3.ShowSaveFileDialog(save_scene_cbfn, rawptr(&app.scene), app.window.handle, raw_data(filters), 2, "./scene.json")
+					sdl3.ShowSaveFileDialog(save_scene_cbfn, rawptr(&app.scene), app.window.handle, &_dialog_filters[0], 2, "./scene.json")
 				} else {
 					save_scene(&app.scene, imstate.scene_path)
 				}
 			}
 			if (im.MenuItem("Save As...", "Ctrl+Shift+S")) {
-				sdl3.ShowSaveFileDialog(save_scene_cbfn, rawptr(&app.scene), app.window.handle, raw_data(filters), 2, "./scene.json")
+				sdl3.ShowSaveFileDialog(save_scene_cbfn, rawptr(&app.scene), app.window.handle, &_dialog_filters[0], 2, "./scene.json")
 			}
 			im.Separator()
 			if (im.MenuItem("Exit", "Esc")) {
@@ -179,12 +175,16 @@ imgui_ui :: proc(app: ^App, imstate: ^ImState) {
 		app.camera.pitch = math.clamp(rotation[0], -89.9, 89.9)
 		app.camera.yaw = rotation[1]
 		im.DragFloat("FOV", &app.camera.fov, 1.0, 1.0, 179.0, "%.0f\xC2\xB0")
+		clear_color := app.clear_color.rgb
+		im.ColorEdit3("Clear color", &clear_color)
+		app.clear_color.rgb = clear_color
 		im.PopID()
 		
 		im.SeparatorText("Rendering")
 		im.DragInt("Ray max marches", &app.shader.ray_max_steps, 1, 1, 5000)
 		im.DragFloat("Ray max distance", &app.shader.ray_max_dist, 1.0, 1.0, 500.0)
 		im.DragInt("Ray max teleports", &app.shader.ray_max_teleports, 1, 1, 50)
+		im.DragFloat("Portal thickness", &app.shader.portal_thickness, 0.01, 0.0, 0.1)
 
 		imgui_ui_scene(app, imstate)
 	}
@@ -234,7 +234,9 @@ imgui_ui_scene_primitives :: proc(app: ^App, imstate: ^ImState) {
 			primitive.param2 = scale[2]
 		}
 
-		im.ColorEdit4("Color", &primitive.color)
+		color := primitive.color.rgb
+		im.ColorEdit3("Color", &color)
+		primitive.color.rgb = color
 		primitive.position = {position[0], position[1], position[2], primitive.position[3]}
 		if im.Button("Remove") {
 			ordered_remove(&app.scene.primitives, i)

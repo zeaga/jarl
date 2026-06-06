@@ -11,6 +11,7 @@ Shader :: struct {
 	ray_max_steps: i32,
 	ray_max_dist: f32,
 	ray_max_teleports: i32,
+	portal_thickness: f32,
 }
 
 @(private="file")
@@ -55,6 +56,7 @@ shader_create :: proc(shader: ^Shader) {
 		shader.ray_max_dist = SHADER_DEFAULT_RAY_MAX_DIST
 		shader.ray_max_steps = SHADER_DEFAULT_RAY_MAX_STEPS
 		shader.ray_max_teleports = SHADER_DEFAULT_RAY_MAX_TELEPORTS
+		shader.portal_thickness = SHADER_DEFAULT_PORTAL_THICKNESS
 		return
 	}
 
@@ -70,7 +72,6 @@ shader_create :: proc(shader: ^Shader) {
 
 shader_set_uniforms :: proc(app: ^App, shader: ^Shader) {
 	rot_mtx := camera_get_rotation_matrix(&app.camera)
-	shader_set_uniform(&app.shader, "debug_mode", DEBUG_MODE)
 	shader_set_uniform(&app.shader, "cam_position", &app.camera.position)
 	shader_set_uniform(&app.shader, "cam_rotation", &rot_mtx)
 	shader_set_uniform(&app.shader, "cam_tan_half_fov", camera_get_tan_half_fov(&app.camera))
@@ -81,6 +82,7 @@ shader_set_uniforms :: proc(app: ^App, shader: ^Shader) {
 	shader_set_uniform(&app.shader, "ray_max_steps", shader.ray_max_steps)
 	shader_set_uniform(&app.shader, "ray_max_dist", shader.ray_max_dist)
 	shader_set_uniform(&app.shader, "ray_max_teleports", shader.ray_max_teleports)
+	shader_set_uniform(&app.shader, "portal_thickness", shader.portal_thickness)
 }
 
 shader_bind :: proc(shader: ^Shader) {
