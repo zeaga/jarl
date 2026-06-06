@@ -1,12 +1,12 @@
 # Jarl Engine
 
-A real-time raymarching engine written in [Odin](https://odin-lang.org/).
+A real-time raymarching engine written in [Odin](https://odin-lang.org/) using OpenGL 4.3
+
+<img width="1922" height="1112" alt="image" src="https://github.com/user-attachments/assets/ab9e835f-93be-45b7-a57b-1d9d557eefa2" />
 
 ## Goal
 
 Jarl is a hobby rendering engine focused on exploring **raymarched scenes with non-Euclidean geometry via portals**. Primitives (spheres, boxes) and portals (ellipses, rectangles) are defined on the CPU, uploaded to the GPU via SSBOs, and rendered entirely in a fragment shader using signed-distance functions. In the future I plan on implementing Lua scripting so that it works more like a LÖVE-style game development framework.
-
----
 
 ## Project Map
 
@@ -30,8 +30,6 @@ jarl/
             └── frag.glsl   # Raymarching fragment shader (SDF, portals)
 ```
 
----
-
 ## Build Instructions
 
 **NOTE:** This'll require OpenGL 4.3 since I use SSBOs for scene data
@@ -39,8 +37,6 @@ jarl/
 ```
 odin build src -debug -out:build/debug.exe
 ```
-
----
 
 ## Disclaimer
 
