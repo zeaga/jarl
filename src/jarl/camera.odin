@@ -56,8 +56,8 @@ camera_update :: proc(camera: ^Camera, app: ^App) {
 	if mx != 0 || my != 0 {
 		camera.yaw -= cast(f32)(mx * dt * LOOK_SPEED)
 		camera.pitch += cast(f32)(my * dt * LOOK_SPEED)
-		camera.yaw = math.mod(math.mod(camera.yaw + 180.0, 360.0) + 360.0, 360.0) - 180.0
-		camera.pitch = math.clamp(camera.pitch, -89.9, 89.9)
+		camera.yaw = normalize_rotation(camera.yaw)
+		camera.pitch = math.clamp(normalize_rotation(camera.pitch), -89.9, 89.9)
 	}
 
 	move_dir := [3]f32{0, 0, 0}
@@ -81,9 +81,14 @@ camera_update :: proc(camera: ^Camera, app: ^App) {
 	}
 
 	if move_dir.x != 0 || move_dir.y != 0 || move_dir.z != 0 {
-		move_dir = linalg.normalize(move_dir)
+		y := move_dir.y
+		move_dir.y = 0
+		if linalg.length2(move_dir) > 0 {
+			move_dir = linalg.normalize(move_dir)
+		}
 		rot_mtx := camera_get_rotation_matrix(camera)
 		move_world := rot_mtx * move_dir
+		move_world.y += y
 		speed := MOVE_SPEED
 		if input_is_key_down(&app.input, .LeftAlt) {
 			speed *= ALT_MOD
@@ -95,65 +100,64 @@ camera_update :: proc(camera: ^Camera, app: ^App) {
 	}
 }
 
+@(private="file") _portal_rotation :: proc(nA, tA, nB, tB: [3]f32) -> matrix[3, 3]f32 {
+	bA := linalg.cross(nA, tA)
+	bB := linalg.cross(nB, tB)
+	MA := matrix[3, 3]f32{
+		-nA.x, tA.x, bA.x,
+		-nA.y, tA.y, bA.y,
+		-nA.z, tA.z, bA.z,
+	}
+	MB := matrix[3, 3]f32{
+		nB.x, -tB.x, bB.x,
+		nB.y, -tB.y, bB.y,
+		nB.z, -tB.z, bB.z,
+	}
+	return MB * linalg.transpose(MA)
+}
+
 @(private="file") _camera_update_portal :: proc(camera: ^Camera, app: ^App) {
 	if camera.last_position == camera.position {
 		return
 	}
-
 	for portal, i in app.scene.portals {
 		if portal.partner == i32(i) || portal.partner < 0 || portal.partner >= i32(len(app.scene.portals)) do continue
 		if !_camera_intersects_portal(camera, portal) { continue }
-
 		partner := app.scene.portals[portal.partner]
 
-		camera.position += partner.position.xyz - portal.position.xyz
+		flip :: matrix[3, 3]f32{-1, 0, 0,  0, 1, 0,  0, 0, -1}
+		delta := euler_to_mat3(partner.rotation.xyz) * flip * linalg.transpose(euler_to_mat3(portal.rotation.xyz))
+
+		camera.position = partner.position.xyz + delta * (camera.position - portal.position.xyz)
 		camera.last_position = camera.position
 
-		// c_x := camera.pitch * math.RAD_PER_DEG
-		// c_y := camera.yaw * math.RAD_PER_DEG
-
-		// pa_x := portal.rotation.x * math.RAD_PER_DEG
-		// pa_y := portal.rotation.y * math.RAD_PER_DEG
-		// pa_z := portal.rotation.z * math.RAD_PER_DEG
-
-		// pb_x := partner.rotation.x * math.RAD_PER_DEG
-		// pb_y := partner.rotation.y * math.RAD_PER_DEG
-		// pb_z := partner.rotation.z * math.RAD_PER_DEG
-
-		// camera_q := linalg.quaternion_from_euler_angles(c_x, c_y, 0.0, .YXZ)
-		// portal_q := linalg.quaternion_from_euler_angles(pa_x, pa_y, pa_z, .YXZ)
-		// partner_q := linalg.quaternion_from_euler_angles(pb_x, pb_y, pb_z, .YXZ)
-
-		// delta_q := linalg.mul(partner_q, linalg.quaternion_inverse(portal_q))
-		// new_camera_q := linalg.mul(delta_q, camera_q)
-
-		// new_pitch, new_yaw, _ := linalg.euler_angles_from_quaternion(new_camera_q, .YXZ)
-		// camera.pitch = new_pitch * math.DEG_PER_RAD
-		// camera.yaw = new_yaw * math.DEG_PER_RAD
-
+		cm := camera_get_rotation_matrix(camera)
+		cam_fwd := [3]f32{cm[0, 2], cm[1, 2], cm[2, 2]}
+		new_fwd := delta * cam_fwd
+		camera.yaw = math.atan2(new_fwd.x, -new_fwd.z) * math.DEG_PER_RAD
+		camera.pitch = math.asin(math.clamp(new_fwd.y, -1, 1)) * math.DEG_PER_RAD
 		break
 	}
 }
 
 @(private="file") _camera_intersects_portal :: proc(camera: ^Camera, portal: Portal) -> bool {
-	portal_half_size := [2]f32 {portal.half_width, portal.half_height}
-	
-	pitch := portal.rotation.x * math.RAD_PER_DEG
-	yaw := portal.rotation.y * math.RAD_PER_DEG
+	rot := euler_to_mat3(portal.rotation.xyz)
+	normal  := rot * [3]f32{0, 0, 1}
+	tangent := rot * [3]f32{1, 0, 0}
 
-	portal_normal := [3]f32 {
-		math.cos(pitch) * math.sin(yaw),
-		math.sin(pitch),
-		-math.cos(pitch) * math.cos(yaw),
-	}
+	dir := camera.position - camera.last_position
+	denom := linalg.dot(normal, dir)
+	if abs(denom) < 0.0001 do return false
 
-	return _line_intersects_plane(
-		camera.last_position,
-		camera.position,
-		portal.position.xyz,
-		portal_normal,
-		portal_half_size,
-	)
+	t := linalg.dot(normal, portal.position.xyz - camera.last_position) / denom
+	if t < 0 || t > 1 do return false
+
+	hit := camera.last_position + dir * t - portal.position.xyz
+	bitan := linalg.cross(normal, tangent)
+	u := linalg.dot(hit, tangent)
+	v := linalg.dot(hit, bitan)
+
+	return abs(u) <= portal.half_width && abs(v) <= portal.half_height
 }
 
 @(private="file") _line_intersects_plane :: proc(
@@ -163,6 +167,9 @@ camera_update :: proc(camera: ^Camera, app: ^App) {
 	EPSILON :: 0.0001
 
 	dir := line_end - line_start
+	if linalg.length2(dir) < EPSILON {
+		return false
+	}
 
 	denom := linalg.dot(plane_normal, dir)
 	if abs(denom) < EPSILON { return false }
@@ -178,7 +185,8 @@ camera_update :: proc(camera: ^Camera, app: ^App) {
 		up = {0, 0, 1}
 		right = linalg.cross(up, plane_normal)
 	}
-	forward := linalg.cross(plane_normal, linalg.normalize(right))
+	right = linalg.normalize(right)
+	forward := linalg.cross(plane_normal, right)
 
 	local := hit - plane_position
 	u := linalg.dot(local, right)

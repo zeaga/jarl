@@ -179,6 +179,16 @@ MapResult raymarch(vec3 ray_pos, vec3 ray_dir) {
 		float step_dist = r.dist;
 		bool teleported = false;
 
+		// Check portal outlines from the current (possibly teleported) ray position
+		if (debug_mode) {
+			for (int j = 0; j < portal_count; j++) {
+				float ot = ray_portal_outline(ray_pos, ray_dir, j);
+				if (ot > 0.0 && ot < step_dist) {
+					return MapResult(total_dist + ot, -2, ray_pos + ray_dir * ot);
+				}
+			}
+		}
+
 		if (teleports < ray_max_teleports) {
 			for (int j = 0; j < portal_count; j++) {
 				mat3 aRot = euler_to_mat3(portals[j].rotation.xyz);
@@ -218,26 +228,15 @@ MapResult raymarch(vec3 ray_pos, vec3 ray_dir) {
 	return MapResult(-1.0, -1, vec3(0.0));
 }
 
-vec3 portal_outline(MapResult result, vec3 ray_dir, vec3 color) {
-	if (!debug_mode) return color;
-	float nearest = ray_max_dist;
-	for (int j = 0; j < portal_count; j++) {
-		float ot = ray_portal_outline(cam_position, ray_dir, j);
-		if (ot > 0.0 && ot < nearest && (result.id < 0 || ot < result.dist)) {nearest = ot;}
-	}
-	if (nearest < ray_max_dist) {
-		return vec3(1.0, 0.8, 0.0);
-	}
-	return color;
-}
-
 void main() {
 	vec3 ray_dir = calc_ray_dir(ndc);
 	vec3 color = clear_color.rgb;
 
 	MapResult result = raymarch(cam_position, ray_dir);
 
-	if (result.id >= 0) {
+	if (result.id == -2) {
+		color = vec3(1.0, 0.8, 0.0);
+	} else if (result.id >= 0) {
 		vec3 p = result.pos;
 		color = prims[result.id].color.rgb;
 
@@ -245,8 +244,6 @@ void main() {
 		vec3 light = normalize(vec3(1, 2, 3));
 		color *= max(dot(n, light) + 0.3, 0.3);
 	}
-
-	color = portal_outline(result, ray_dir, color);
 
 	fragColor = vec4(color, 1.0);
 }

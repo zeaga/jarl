@@ -1,6 +1,9 @@
 package jarl
 
 import "core:fmt"
+import "core:math"
+
+// import "osdialog"
 
 import im_glfw "shared:imgui/imgui_impl_glfw"
 import im_gl "shared:imgui/imgui_impl_opengl3"
@@ -9,6 +12,7 @@ import im "shared:imgui"
 ImState :: struct {
 	// show_stats: bool,
 	// show_debug: bool,
+	scene_path: string,
 }
 
 imgui_init :: proc(app: ^App, imstate: ^ImState) {
@@ -18,11 +22,13 @@ imgui_init :: proc(app: ^App, imstate: ^ImState) {
 	im.CHECKVERSION()
 	im.CreateContext(nil)
 	io := im.GetIO()
-	io.ConfigFlags += {im.ConfigFlag.NavEnableKeyboard}
+	io.ConfigDragClickToInputText = true
+	io.ConfigFlags += {.NavEnableKeyboard}
 	im.StyleColorsDark()
 	im_glfw.InitForOpenGL(app.window.handle, true)
 	im_gl.Init(GLSL_VERSION)
 	io.IniFilename = nil
+	imstate.scene_path = ""
 	// imstate.show_stats = DEBUG_MODE
 	// imstate.show_debug = DEBUG_MODE
 }
@@ -36,11 +42,11 @@ imgui_update :: proc(app: ^App, imstate: ^ImState) {
 	im.NewFrame()
 	io := im.GetIO()
 	if window_get_mouse_mode(&app.window) != .Normal {
-		io.ConfigFlags += {im.ConfigFlag.NoMouse}
-		io.ConfigFlags -= {im.ConfigFlag.NavEnableKeyboard}
+		io.ConfigFlags += {.NoMouse}
+		io.ConfigFlags -= {.NavEnableKeyboard}
 	} else {
-		io.ConfigFlags -= {im.ConfigFlag.NoMouse}
-		io.ConfigFlags += {im.ConfigFlag.NavEnableKeyboard}
+		io.ConfigFlags -= {.NoMouse}
+		io.ConfigFlags += {.NavEnableKeyboard}
 	}
 
 	imgui_ui(app, imstate)
@@ -54,7 +60,27 @@ imgui_ui :: proc(app: ^App, imstate: ^ImState) {
 	menuh: f32 = 0
 	if (im.BeginMainMenuBar()) {
 		if (im.BeginMenu("File")) {
-			if (im.MenuItem("Exit", "Esc")) {app.running = false}
+			if (im.MenuItem("New Scene", "Ctrl+N")) {
+				scene_flush(&app.scene)
+			}
+			im.Separator()
+			if (im.MenuItem("Load Default Scene", "Ctrl+D")) {
+				scene_load_default(&app.scene)
+			}
+			if (im.MenuItem("Load Scene...", "Ctrl+O")) {
+				// TODO
+			}
+			im.Separator()
+			if (im.MenuItem("Save", "Ctrl+S")) {
+				// TODO
+			}
+			if (im.MenuItem("Save As...", "Ctrl+Shift+S")) {
+				// TODO
+			}
+			im.Separator()
+			if (im.MenuItem("Exit", "Esc")) {
+				app.running = false
+			}
 			im.EndMenu()
 		}
 		menuh = im.GetWindowSize().y
@@ -85,18 +111,19 @@ imgui_ui :: proc(app: ^App, imstate: ^ImState) {
 
 		im.PushID("Camera")
 		im.SeparatorText("Camera")
-		im.InputFloat3("Position", &app.camera.position)
-		rotation := [2]f32{app.camera.yaw, app.camera.pitch}
-		im.InputFloat2("Rotation", &rotation)
-		app.camera.yaw = rotation[0]
-		app.camera.pitch = rotation[1]
-		im.SliderFloat("FOV", &app.camera.fov, 1.0, 179.0, "%.0f\xC2\xB0")
+		im.DragFloat3("Position", &app.camera.position, 0.25, 0.0, 0.0, "%.2f")
+		rotation := [2]f32{app.camera.pitch, app.camera.yaw}
+		im.DragFloat2("Rotation", &rotation, 1.0, 0.0, 0.0, "%.0f\xC2\xB0")
+		rotation = normalize_rotation_2f32(rotation)
+		app.camera.pitch = math.clamp(rotation[0], -89.9, 89.9)
+		app.camera.yaw = rotation[1]
+		im.DragFloat("FOV", &app.camera.fov, 1.0, 1.0, 179.0, "%.0f\xC2\xB0")
 		im.PopID()
 		
 		im.SeparatorText("Rendering")
-		im.SliderInt("Ray max marches", &app.shader.ray_max_steps, 1, 5000)
-		im.SliderFloat("Ray max distance", &app.shader.ray_max_dist, 1.0, 500.0)
-		im.SliderInt("Ray max teleports", &app.shader.ray_max_teleports, 1, 50)
+		im.DragInt("Ray max marches", &app.shader.ray_max_steps, 1, 1, 5000)
+		im.DragFloat("Ray max distance", &app.shader.ray_max_dist, 1.0, 1.0, 500.0)
+		im.DragInt("Ray max teleports", &app.shader.ray_max_teleports, 1, 1, 50)
 
 		imgui_ui_scene(app, imstate)
 	}
@@ -133,15 +160,17 @@ imgui_ui_scene_primitives :: proc(app: ^App, imstate: ^ImState) {
 			im.EndCombo()
 		}
 
-		im.InputFloat3("Position", &position)
+		im.DragFloat3("Position", &position, 0.25, 0.0, 0.0, "%.2f")
 
 		switch primitive.type {
 		case .Sphere:
-			im.SliderFloat("Radius", &primitive.param0, 0.1, 10.0, "%.2f", {.Logarithmic})
+			im.DragFloat("Radius", &primitive.param0, 0.25, 0.0, 0.0, "%.2f")
 		case .Box:
-			im.SliderFloat("Width", &primitive.param0, 0.1, 10.0, "%.2f", {.Logarithmic})
-			im.SliderFloat("Height", &primitive.param1, 0.1, 10.0, "%.2f", {.Logarithmic})
-			im.SliderFloat("Depth", &primitive.param2, 0.1, 10.0, "%.2f", {.Logarithmic})
+			scale := [3]f32{primitive.param0, primitive.param1, primitive.param2}
+			im.DragFloat3("Scale", &scale, 0.25, 0.0, 0.0, "%.2f")
+			primitive.param0 = scale[0]
+			primitive.param1 = scale[1]
+			primitive.param2 = scale[2]
 		}
 
 		im.ColorEdit4("Color", &primitive.color)
@@ -182,18 +211,17 @@ imgui_ui_scene_portals :: proc(app: ^App, imstate: ^ImState) {
 		}
 
 		position: [3]f32 = {portal.position[0], portal.position[1], portal.position[2]}
-		rotation: [3]f32 = {portal.rotation[0], portal.rotation[1], portal.rotation[2]}
-		width: f32 = portal.half_width * 2
-		height: f32 = portal.half_height * 2
-		im.InputFloat3("Position", &position)
-		im.InputFloat3("Rotation", &rotation)
-		im.SliderFloat("Width", &width, 0.1, 10.0, "%.2f", {.Logarithmic})
-		im.SliderFloat("Height", &height, 0.1, 10.0, "%.2f", {.Logarithmic})
-		im.SliderInt("Partner", &portal.partner, 0, i32(len(app.scene.portals)) - 1, "%d")
+		rotation: [2]f32 = {portal.rotation[0], portal.rotation[1]}
+		scale := [2]f32 {portal.half_width * 2, portal.half_height * 2}
+		im.DragFloat3("Position", &position, 0.25, 0.0, 0.0, "%.2f")
+		im.DragFloat2("Rotation", &rotation, 1.0, 0.0, 0.0, "%.0f\xC2\xB0")
+		im.DragFloat2("Scale", &scale, 0.25, 0.1, 10.0)
+		im.SliderInt("Partner", &portal.partner, 0, i32(len(app.scene.portals)) - 1)
 		portal.position = {position[0], position[1], position[2], portal.position[3]}
-		portal.rotation = {rotation[0], rotation[1], rotation[2], portal.rotation[3]}
-		portal.half_width = width * 0.5
-		portal.half_height = height * 0.5
+		rotation = normalize_rotation_2f32(rotation)
+		portal.rotation = {rotation[0], rotation[1], portal.rotation[2], portal.rotation[3]}
+		portal.half_width = scale[0] * 0.5
+		portal.half_height = scale[1] * 0.5
 		if portal.partner < 0 || portal.partner >= i32(len(app.scene.portals)) {
 			portal.partner = i32(i)
 		}

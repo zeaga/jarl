@@ -1,6 +1,70 @@
 package jarl
 
+import "core:math"
 import "vendor:glfw"
+
+DEBUG_MODE :: true
+
+TIMING_HISTORY_SIZE :: 30
+
+IMGUI_ENABLED :: true
+
+GL_MAJOR_VERSION :: 4
+GL_MINOR_VERSION :: 5
+GLSL_VERSION :: "#version 450"
+
+SHADER_DEFAULT_RAY_MAX_STEPS :: 1500
+SHADER_DEFAULT_RAY_MAX_DIST :: 200.0
+SHADER_DEFAULT_RAY_MAX_TELEPORTS :: 8
+
+euler_to_mat3 :: proc(e: [3]f32) -> matrix[3, 3]f32 {
+	r := e * math.RAD_PER_DEG
+	cx := math.cos(r.x); sx := math.sin(r.x)
+	cy := math.cos(r.y); sy := math.sin(r.y)
+	cz := math.cos(r.z); sz := math.sin(r.z)
+
+	ry := matrix[3, 3]f32{
+		 cy, 0, sy,
+		  0, 1,  0,
+		-sy, 0, cy,
+	}
+	rx := matrix[3, 3]f32{
+		1,   0,   0,
+		0,  cx, -sx,
+		0,  sx,  cx,
+	}
+	rz := matrix[3, 3]f32{
+		 cz, sz, 0,
+		-sz, cz, 0,
+		  0,  0, 1,
+	}
+	return ry * rx * rz
+}
+
+normalize_rotation_1f32 :: proc(rot: f32) -> f32 {
+	rotation := math.mod(math.mod(rot + 180.0, 360.0) + 360.0, 360.0) - 180.0
+	return rotation == -180 ? 180 : rotation
+}
+
+normalize_rotation_2f32 :: proc(rot: [2]f32) -> (rotation: [2]f32) {
+	for i in 0..<2 {
+		rotation[i] = normalize_rotation_1f32(rot[i])
+	}
+	return
+}
+
+normalize_rotation_3f32 :: proc(rot: [3]f32) -> (rotation: [3]f32) {
+	for i in 0..<3 {
+		rotation[i] = normalize_rotation_1f32(rot[i])
+	}
+	return
+}
+
+normalize_rotation :: proc {
+	normalize_rotation_1f32,
+	normalize_rotation_2f32,
+	normalize_rotation_3f32,
+}
 
 MouseMode :: enum {
 	Normal   = glfw.CURSOR_NORMAL,
