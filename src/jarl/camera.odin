@@ -147,7 +147,7 @@ camera_update :: proc(camera: ^Camera, app: ^App) {
 
 	dir := camera.position - camera.last_position
 	denom := linalg.dot(normal, dir)
-	if abs(denom) < 0.0001 do return false
+	if denom > -0.0001 do return false
 
 	t := linalg.dot(normal, portal.position.xyz - camera.last_position) / denom
 	if t < 0 || t > 1 do return false

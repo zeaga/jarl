@@ -15,7 +15,7 @@ AppDescriptor :: struct {
 }
 
 App :: struct {
-	clear_color: [4]f32,
+	clear_color: [3]f32,
 	ctx: runtime.Context,
 	running: bool,
 	vao: u32,
@@ -100,7 +100,7 @@ app_init :: proc(app: ^App) {
 	app.camera.position.z = 10.0
 	app.camera.yaw = 180.0
 	app.camera.fov = 45.0
-	app.clear_color = {0.2, 0.3, 0.5, 1.0}
+	app.clear_color = {0.2, 0.3, 0.5}
 }
 
 app_update :: proc(app: ^App) {

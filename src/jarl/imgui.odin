@@ -175,9 +175,7 @@ imgui_ui :: proc(app: ^App, imstate: ^ImState) {
 		app.camera.pitch = math.clamp(rotation[0], -89.9, 89.9)
 		app.camera.yaw = rotation[1]
 		im.DragFloat("FOV", &app.camera.fov, 1.0, 1.0, 179.0, "%.0f\xC2\xB0")
-		clear_color := app.clear_color.rgb
-		im.ColorEdit3("Clear color", &clear_color)
-		app.clear_color.rgb = clear_color
+		im.ColorEdit3("Clear color", &app.clear_color)
 		im.PopID()
 		
 		im.SeparatorText("Rendering")

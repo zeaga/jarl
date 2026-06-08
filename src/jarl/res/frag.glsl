@@ -8,7 +8,7 @@ uniform vec3 cam_position;
 uniform mat3 cam_rotation;
 uniform float cam_tan_half_fov;
 uniform vec2 resolution;
-uniform vec4 clear_color;
+uniform vec3 clear_color;
 
 uniform int ray_max_steps;
 uniform float ray_max_dist;
@@ -111,22 +111,30 @@ mat3 euler_to_mat3(vec3 e) {
 	return Ry * Rx * Rz;
 }
 
-// Uses pre-cached normal/tangent/bitangent to avoid redundant euler_to_mat3 calls
+mat3 portal_rotation(vec3 nA, vec3 tA, vec3 nB, vec3 tB) {
+	vec3 bA = cross(nA, tA);
+	vec3 bB = cross(nB, tB);
+	mat3 MA = mat3(-nA, tA, bA);
+	mat3 MB = mat3( nB,-tB, bB);
+	return MB * transpose(MA);
+}
+
+// Returns outline t if the ray hits the portal frame, else -1.
+// Checks back-face: returns -1 if ray travels with the normal.
 float ray_portal_outline_cached(vec3 ray_origin, vec3 ray_direction, int j, PortalCache cache) {
-	vec3 center = portals[j].position.xyz;
 	vec3 normal = cache.normal;
-	if (dot(normal, ray_direction) >= 0.0) return -1.0; // back face
-	float hw = portals[j].half_width;
-	float hh = portals[j].half_height;
+	if (dot(normal, ray_direction) >= 0.0) return -1.0;
 
 	float denom = dot(normal, ray_direction);
 	if (abs(denom) < EPSILON * 0.1) return -1.0;
-	float t = dot(center - ray_origin, normal) / denom;
+	float t = dot(portals[j].position.xyz - ray_origin, normal) / denom;
 	if (t < EPSILON * 0.1) return -1.0;
 
-	vec3 hit = (ray_origin + ray_direction * t) - center;
+	vec3 hit = (ray_origin + ray_direction * t) - portals[j].position.xyz;
 	float u = dot(hit, cache.tangent);
 	float v = dot(hit, cache.bitangent);
+	float hw = portals[j].half_width;
+	float hh = portals[j].half_height;
 
 	if (portals[j].type == 0) {
 		float outer = (u*u)/(hw*hw) + (v*v)/(hh*hh);
@@ -140,34 +148,27 @@ float ray_portal_outline_cached(vec3 ray_origin, vec3 ray_direction, int j, Port
 	}
 }
 
-// Uses pre-cached normal/tangent/bitangent to avoid redundant euler_to_mat3 calls
+// Returns intersection t if the ray passes through the portal interior, else -1.
+// Back-face check matches outline: only front-face rays can teleport.
 float ray_portal_intersect_cached(vec3 ray_origin, vec3 ray_direction, int j, PortalCache cache) {
-	vec3 center = portals[j].position.xyz;
-	float hw = portals[j].half_width;
-	float hh = portals[j].half_height;
+	if (dot(cache.normal, ray_direction) >= 0.0) return -1.0; // back face — mirrors outline check
 
 	float denom = dot(cache.normal, ray_direction);
 	if (abs(denom) < EPSILON) return -1.0;
-	float t = dot(center - ray_origin, cache.normal) / denom;
+	float t = dot(portals[j].position.xyz - ray_origin, cache.normal) / denom;
 	if (t < EPSILON) return -1.0;
 
-	vec3 hit = (ray_origin + ray_direction * t) - center;
+	vec3 hit = (ray_origin + ray_direction * t) - portals[j].position.xyz;
 	float u = dot(hit, cache.tangent);
 	float v = dot(hit, cache.bitangent);
+	float hw = portals[j].half_width;
+	float hh = portals[j].half_height;
 
 	if (portals[j].type == 0) {
 		return ((u * u) / (hw * hw) + (v * v) / (hh * hh)) <= 1.0 ? t : -1.0;
 	} else {
 		return (abs(u) <= hw && abs(v) <= hh) ? t : -1.0;
 	}
-}
-
-mat3 portal_rotation(vec3 nA, vec3 tA, vec3 nB, vec3 tB) {
-	vec3 bA = cross(nA, tA);
-	vec3 bB = cross(nB, tB);
-	mat3 MA = mat3(-nA, tA, bA);
-	mat3 MB = mat3( nB,-tB, bB);
-	return MB * transpose(MA);
 }
 
 MapResult raymarch(vec3 ray_pos, vec3 ray_dir, PortalCache cache[8]) {
@@ -182,27 +183,21 @@ MapResult raymarch(vec3 ray_pos, vec3 ray_dir, PortalCache cache[8]) {
 		float step_dist = r.dist;
 		bool teleported = false;
 
+		// Single portal loop: outline check first, then teleport check.
+		// Coarse distance cull is computed once and shared between both tests.
 		for (int j = 0; j < portal_count; j++) {
-			// Coarse portal cull before detailed intersection
 			float coarse = length(ray_pos - portals[j].position.xyz)
 				- max(portals[j].half_width, portals[j].half_height) * 2.0;
-			if (coarse > r.dist) continue;
+			if (coarse > step_dist) continue;
 
+			// Outline (frame) rendering
 			float ot = ray_portal_outline_cached(ray_pos, ray_dir, j, cache[j]);
 			if (ot > 0.0 && ot < step_dist) {
 				return MapResult(total_dist + ot, -2, ray_pos + ray_dir * ot);
 			}
-		}
 
-		if (teleports < ray_max_teleports) {
-			for (int j = 0; j < portal_count; j++) {
-				if (dot(cache[j].normal, ray_dir) >= 0.0) continue; // back face
-
-				// Coarse portal cull before detailed intersection
-				float coarse = length(ray_pos - portals[j].position.xyz)
-					- max(portals[j].half_width, portals[j].half_height) * 2.0;
-				if (coarse > r.dist) continue;
-
+			// Teleportation — only if budget remains
+			if (teleports < ray_max_teleports) {
 				float pt = ray_portal_intersect_cached(ray_pos, ray_dir, j, cache[j]);
 				if (pt > 0.0 && pt < step_dist) {
 					int partner = portals[j].partner_index;
@@ -216,9 +211,9 @@ MapResult raymarch(vec3 ray_pos, vec3 ray_dir, PortalCache cache[8]) {
 					ray_pos = portals[partner].position.xyz
 							+ rot * ((ray_pos + ray_dir * pt) - portals[j].position.xyz);
 					ray_dir = rot * ray_dir;
-					// Nudge past the partner portal plane to avoid self-intersection
-					// on the next step due to floating point imprecision.
-					ray_pos += ray_dir * EPSILON * 10.0;
+					// Nudge past partner portal to avoid self-intersection.
+					// 100x EPSILON is more robust for thin geometry near the exit plane.
+					ray_pos += ray_dir * EPSILON * 100.0;
 					total_dist += pt;
 					teleports++;
 					teleported = true;
@@ -227,10 +222,14 @@ MapResult raymarch(vec3 ray_pos, vec3 ray_dir, PortalCache cache[8]) {
 			}
 		}
 
-		if (!teleported) {
-			ray_pos += ray_dir * step_dist;
-			total_dist += step_dist;
+		if (teleported) {
+			// step_dist from pre-teleport map() is stale — skip advancing and
+			// let the next iteration evaluate map() at the new position.
+			continue;
 		}
+
+		ray_pos += ray_dir * step_dist;
+		total_dist += step_dist;
 	}
 
 	return MapResult(-1.0, -1, vec3(0.0));
@@ -238,10 +237,11 @@ MapResult raymarch(vec3 ray_pos, vec3 ray_dir, PortalCache cache[8]) {
 
 void main() {
 	vec3 ray_dir = calc_ray_dir(ndc);
-	vec3 color = clear_color.rgb;
+	vec3 color = clear_color;
 
-	// Pre-compute all portal matrices once per fragment rather than
-	// redundantly inside every raymarch step and portal function call.
+	// Pre-compute all portal matrices once per fragment.
+	// Array sized to portal_count avoids wasted euler_to_mat3 calls,
+	// but GLSL requires a compile-time constant — 8 is the assumed max.
 	PortalCache cache[8];
 	for (int j = 0; j < portal_count; j++) {
 		mat3 rot = euler_to_mat3(portals[j].rotation.xyz);
